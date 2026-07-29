@@ -41,6 +41,8 @@ SUBDISTRICT_RE = re.compile(r'([\u4e00-\u9fff]+街道)')
 LANDMARK_RE = re.compile(r'([\u4e00-\u9fffA-Za-z0-9]+(?:大厦|大楼|广场|中心|花园|公寓|苑|城|酒店|商场|写字楼|会所))')
 VILLAGE_RE = re.compile(r'([\u4e00-\u9fff]+村)')
 ROAD_NUM_RE = re.compile(r'([\u4e00-\u9fff]{1,6}[路街道巷]\d+[-\d]*号?)')
+BRANCH_RE = re.compile(r'([\u4e00-\u9fffA-Za-z0-9·]{2,24}(?:健康药房|大药房|药房|药店|分店|店))$')
+COMPANY_SPLIT_RE = re.compile(r'(?:有限公司|连锁有限公司|医药连锁|药业连锁|连锁)')
 
 SZ_LAT = (22.40, 22.95)
 SZ_LNG = (113.70, 114.65)
@@ -104,6 +106,29 @@ def extract_landmarks(address, name):
     return found
 
 
+def extract_shop_pois(name, address):
+    pois = []
+    if name:
+        pois.append(name.strip())
+        branch = BRANCH_RE.search(name.strip())
+        if branch:
+            full_branch = branch.group(1)
+            if full_branch not in pois:
+                pois.append(full_branch)
+            short = re.sub(r'(健康药房|大药房|药房|药店|分店|店)$', '', full_branch)
+            if len(short) >= 2:
+                pois.append(short)
+        parts = COMPANY_SPLIT_RE.split(name)
+        if len(parts) > 1:
+            tail = parts[-1].strip('（）() ')
+            if len(tail) >= 2 and tail not in pois:
+                pois.append(tail)
+    for lm in extract_landmarks(address, name):
+        if lm not in pois:
+            pois.append(lm)
+    return pois
+
+
 def extract_subdistrict(address):
     m = SUBDISTRICT_RE.search(address)
     return m.group(1) if m else None
@@ -114,26 +139,34 @@ def extract_road_number(address):
     return m.group(1) if m else None
 
 
-def score_result(query, result_addr, landmarks, district):
+def score_result(query, result_addr, landmarks, district, pois=None):
     addr = result_addr or ''
     score = 0
+    pois = pois or []
     if district in addr:
         score += 10
     else:
         for other in DISTRICT_BBOX:
             if other != district and other in addr:
                 score -= 12
+    for poi in pois:
+        if len(poi) >= 2 and poi in addr:
+            score += 12 if len(poi) >= 4 else 6
+    if any(k in addr for k in ('药房', '药店', '医院', '大厦', '花园', '广场', '中心')):
+        score += 6
     if re.search(r'\d+号', addr):
-        score += 4
+        score += 3
     sub = extract_subdistrict(query)
     if sub and sub in addr:
-        score += 4
+        score += 3
     for lm in landmarks:
         if lm in addr:
             score += 5
         elif lm in query and len(lm) >= 3:
             score += 1
-    if '街道' in addr and not re.search(r'\d+号', addr) and not any(lm in addr for lm in landmarks):
+    if '街道' in addr and not re.search(r'\d+号', addr) and not any(p in addr for p in pois):
+        score -= 5
+    if addr.count('区') >= 2 and '号' not in addr and not any(p in addr for p in pois[:3]):
         score -= 3
     return score
 
@@ -143,13 +176,19 @@ def geocode_address(name, address, district, worker_idx):
     landmarks = extract_landmarks(addr, name)
     road_num = extract_road_number(addr)
     subdistrict = extract_subdistrict(addr)
+    pois = extract_shop_pois(name, addr)
 
     candidates = []
+    for poi in pois:
+        candidates.append(f'{poi} 深圳市{district}')
+        candidates.append(f'{poi} {district} 深圳')
+        candidates.append(f'{poi} 深圳')
+        if subdistrict:
+            candidates.append(f'{poi} {subdistrict}')
+    for poi in pois[:4]:
+        candidates.append(f'{poi} {addr}')
     if subdistrict and road_num:
         candidates.append(f'{subdistrict}{road_num} 深圳市{district}')
-    for lm in landmarks:
-        candidates.append(f'{lm} {addr}')
-        candidates.append(f'{lm} 深圳市{district}')
     if road_num:
         candidates.append(f'深圳市{district}{road_num}')
         candidates.append(f'{road_num} 深圳市{district}')
@@ -170,12 +209,12 @@ def geocode_address(name, address, district, worker_idx):
         if not hit:
             continue
         lat, lng, result_addr = hit
-        score = score_result(q, result_addr, landmarks, district)
+        score = score_result(q, result_addr, landmarks, district, pois)
         if not in_shenzhen(lat, lng) or not in_district(lat, lng, district):
             continue
         if score > best_score:
             best_score = score
-            best = (lat, lng, score >= 4)
+            best = (lat, lng, score < 8)
         if score > fallback_score:
             fallback_score = score
             fallback = (lat, lng, True)
@@ -245,19 +284,9 @@ def main():
     df = df.dropna(subset=['name'])
     print(f'Loaded {len(df)} pharmacies from Excel')
 
-    # Use researched POI coordinates (skip geocoding hospitals)
-    hospitals_out = []
-    for h in HOSPITALS:
-        hospitals_out.append({
-            'id': h['id'],
-            'name': h['name'],
-            'name_sc': h['name_sc'],
-            'district': h['district'],
-            'address': h['address'],
-            'lat': h['lat'],
-            'lng': h['lng'],
-            'desc': h['address'].replace('深圳市', '').replace('广东省', ''),
-        })
+    # Keep researched hospital coordinates from hospitals.json
+    hospitals_out = json.loads(HOSP_OUT.read_text(encoding='utf-8'))
+    for h in hospitals_out:
         print(f"Hospital {h['id']}: {h['name']} -> {h['lat']:.5f},{h['lng']:.5f}")
 
     # Build task list
@@ -305,6 +334,8 @@ def main():
             'lat': round(result[0], 6),
             'lng': round(result[1], 6),
         }
+        if len(result) > 2 and result[2]:
+            item['pinApprox'] = True
         attach_hospital_ref(item, hospitals_out)
         pharmacies.append(item)
 

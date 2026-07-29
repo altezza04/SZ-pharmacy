@@ -37,20 +37,30 @@
         .leaflet-container { font: inherit; z-index: 0; background: #e8eef2; }
         .leaflet-div-icon { background: transparent; border: none; }
 
-        /* Numbered pharmacy markers */
+        /* Pharmacy = pill, hospital = hospital cross */
         .mk {
-            width: 26px; height: 26px; border-radius: 9999px;
+            width: 30px; height: 30px; border-radius: 9999px;
             background: #059669; color: #fff; border: 2px solid #fff;
             box-shadow: 0 2px 6px rgba(0,0,0,.35);
             display: flex; align-items: center; justify-content: center;
-            font-size: 12px; font-weight: 700; line-height: 1;
+            font-size: 13px; font-weight: 700; line-height: 1;
+            position: relative;
+        }
+        .mk .mk-num {
+            position: absolute; top: -6px; right: -6px;
+            min-width: 16px; height: 16px; padding: 0 3px;
+            border-radius: 9999px; background: #0f766e; color: #fff;
+            border: 1.5px solid #fff; font-size: 9px; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
         }
         .mk-near { background: #4f46e5; }
+        .mk-near .mk-num { background: #3730a3; }
         .mk-hosp {
-            width: 32px; height: 32px; border-radius: 9999px;
+            width: 34px; height: 34px; border-radius: 9999px;
             background: #e11d48; color: #fff; border: 2px solid #fff;
             box-shadow: 0 2px 8px rgba(0,0,0,.4);
-            display: flex; align-items: center; justify-content: center; font-size: 14px;
+            display: flex; align-items: center; justify-content: center; font-size: 15px;
         }
         .mk-user-wrap { position: relative; width: 18px; height: 18px; }
         .mk-user {
@@ -217,9 +227,9 @@
                     </div>
                     <div id="overviewMap" class="w-full h-[300px] lg:h-[460px]"></div>
                     <div class="px-4 py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500 border-t border-slate-100">
-                        <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-600"></span>定點藥店</span>
-                        <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-indigo-600"></span>院邊藥房</span>
-                        <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-600"></span>醫院</span>
+                        <span class="flex items-center gap-1"><i class="fa-solid fa-pills text-emerald-600"></i>定點藥店</span>
+                        <span class="flex items-center gap-1"><i class="fa-solid fa-pills text-indigo-600"></i>院邊藥房</span>
+                        <span class="flex items-center gap-1"><i class="fa-solid fa-hospital text-rose-600"></i>醫院</span>
                         <span class="flex items-center gap-1"><span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-600"></span>我的位置</span>
                         <span class="ml-auto text-slate-400">點擊標記可跳轉至對應卡片</span>
                     </div>
@@ -514,17 +524,19 @@
             },
 
             pharmacyIcon(rank, isNear) {
+                const num = (rank !== undefined && rank !== null && rank !== '' && rank !== '·')
+                    ? `<span class="mk-num">${rank}</span>` : '';
                 return L.divIcon({
                     className: '',
-                    html: `<div class="mk ${isNear ? 'mk-near' : ''}">${rank}</div>`,
-                    iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -12]
+                    html: `<div class="mk ${isNear ? 'mk-near' : ''}"><i class="fa-solid fa-pills"></i>${num}</div>`,
+                    iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14]
                 });
             },
             hospitalIcon() {
                 return L.divIcon({
                     className: '',
-                    html: '<div class="mk-hosp"><i class="fa-solid fa-house-medical"></i></div>',
-                    iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -14]
+                    html: '<div class="mk-hosp"><i class="fa-solid fa-hospital"></i></div>',
+                    iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -16]
                 });
             },
             userIcon() {

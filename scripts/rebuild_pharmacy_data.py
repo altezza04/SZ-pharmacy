@@ -38,6 +38,10 @@ LANDMARK_RE = re.compile(
 )
 VILLAGE_RE = re.compile(r'([\u4e00-\u9fff]+村)')
 ROAD_NUM_RE = re.compile(r'([\u4e00-\u9fff]{1,6}[路街道巷]\d+[-\d]*号?)')
+BRANCH_RE = re.compile(
+    r'([\u4e00-\u9fffA-Za-z0-9·]{2,24}(?:健康药房|大药房|药房|药店|分店|店))$'
+)
+COMPANY_SPLIT_RE = re.compile(r'(?:有限公司|连锁有限公司|医药连锁|药业连锁|连锁)')
 
 def extract_subdistrict(address: str):
     match = SUBDISTRICT_RE.search(address)
@@ -108,58 +112,92 @@ def extract_road_number(address: str):
     return match.group(1) if match else None
 
 
-def score_result(query: str, result_addr: str, landmarks, district: str):
-    """Higher is better; penalise generic or cross-district hits."""
+def extract_shop_pois(name: str, address: str):
+    """Extract POI-like names: branch shop name, building, village."""
+    pois = []
+    if name:
+        pois.append(name.strip())
+        branch = BRANCH_RE.search(name.strip())
+        if branch:
+            full_branch = branch.group(1)
+            if full_branch not in pois:
+                pois.append(full_branch)
+            short = re.sub(r'(健康药房|大药房|药房|药店|分店|店)$', '', full_branch)
+            if len(short) >= 2:
+                pois.append(short)
+        # After company legal name, remaining branch text
+        parts = COMPANY_SPLIT_RE.split(name)
+        if len(parts) > 1:
+            tail = parts[-1].strip('（）() ')
+            if len(tail) >= 2 and tail not in pois:
+                pois.append(tail)
+    for lm in extract_landmarks(address, name):
+        if lm not in pois:
+            pois.append(lm)
+    return pois
+
+
+def score_result(query: str, result_addr: str, landmarks, district: str, pois=None):
+    """Higher is better; reward POI/building hits, penalise street centroids."""
     addr = result_addr or ''
     score = 0
+    pois = pois or []
     if district in addr:
         score += 10
     else:
         for other in DISTRICT_BBOX:
             if other != district and other in addr:
                 score -= 12
+    # Strong boost when matched result mentions a known POI/building
+    for poi in pois:
+        if len(poi) >= 2 and poi in addr:
+            score += 12 if len(poi) >= 4 else 6
+    if any(k in addr for k in ('药房', '药店', '医院', '大厦', '花园', '广场', '中心')):
+        score += 6
     if re.search(r'\d+号', addr):
-        score += 4
+        score += 3
     sub = extract_subdistrict(query)
     if sub and sub in addr:
-        score += 4
+        score += 3
     for lm in landmarks:
         if lm in addr:
             score += 5
         elif lm in query and len(lm) >= 3:
             score += 1
-    if '街道' in addr and not re.search(r'\d+号', addr) and not any(lm in addr for lm in landmarks):
+    # Street / admin-only matches are weak
+    if '街道' in addr and not re.search(r'\d+号', addr) and not any(p in addr for p in pois):
+        score -= 5
+    if addr.count('区') >= 2 and '号' not in addr and not any(p in addr for p in pois[:3]):
         score -= 3
-    if addr.count('区') >= 2 and '号' not in addr:
-        score -= 2
     return score
 
 
 def geocode_address(name: str, address: str, district: str):
-    """Try progressively more specific queries; prefer building/street-level hits."""
+    """POI-first geocoding: shop/building name, then address fallback."""
     addr = address.replace('广东省', '').strip()
     landmarks = extract_landmarks(addr, name)
     road_num = extract_road_number(addr)
     subdistrict = extract_subdistrict(addr)
+    pois = extract_shop_pois(name, addr)
 
     candidates = []
+    # 1) POI / shop / building queries first
+    for poi in pois:
+        candidates.append(f'{poi} 深圳市{district}')
+        candidates.append(f'{poi} {district} 深圳')
+        candidates.append(f'{poi} 深圳')
+        if subdistrict:
+            candidates.append(f'{poi} {subdistrict}')
+    # 2) POI + street address
+    for poi in pois[:4]:
+        candidates.append(f'{poi} {addr}')
+    # 3) Subdistrict + road, then raw address
     if subdistrict and road_num:
         candidates.append(f'{subdistrict}{road_num} 深圳市{district}')
-        candidates.append(f'{subdistrict}{road_num} {district}')
-    for lm in landmarks:
-        candidates.append(f'{lm} {addr}')
-        candidates.append(f'{lm} 深圳市{district}')
-        candidates.append(f'{lm} 深圳')
     if road_num:
         candidates.append(f'深圳市{district}{road_num}')
         candidates.append(f'{road_num} 深圳市{district}')
-        candidates.append(f'{road_num} 深圳')
-    candidates.extend([
-        addr,
-        f'{name} {addr}',
-        addr.replace('深圳市', f'深圳市{district}'),
-        name,
-    ])
+    candidates.extend([addr, f'{name} {addr}'])
 
     seen = set()
     best = None
@@ -175,15 +213,16 @@ def geocode_address(name: str, address: str, district: str):
         if not hit:
             continue
         lat, lng, result_addr = hit
-        score = score_result(q, result_addr, landmarks, district)
+        score = score_result(q, result_addr, landmarks, district, pois)
         if not in_shenzhen(lat, lng) or not in_district(lat, lng, district):
             continue
+        # POI hits need a modest score floor to beat street centroids
         if score > best_score:
             best_score = score
-            best = (lat, lng, score >= 4)
+            best = (lat, lng, score < 8)  # low score => pinApprox-ish via approx flag
         if score > fallback_score:
             fallback_score = score
-            fallback = (lat, lng, score < 4)
+            fallback = (lat, lng, True)
     if best:
         return best[0], best[1], best[2]
     if fallback:
