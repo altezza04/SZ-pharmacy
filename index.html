@@ -313,24 +313,10 @@
     <script>
         /* ============================= 資料 ============================= */
 
-        // 深圳市重點醫院清單與經緯度座標 (WGS-84)
-        const keyHospitals = [
-            { id: 'h1', name: '北京大學深圳醫院', district: '福田區', lat: 22.5562, lng: 114.0538, desc: '蓮花路1120號 (蓮花北)' },
-            { id: 'h2', name: '深圳市人民醫院 (留醫部)', district: '羅湖區', lat: 22.5574, lng: 114.1293, desc: '翠竹路1017號' },
-            { id: 'h3', name: '深圳市第二人民醫院', district: '福田區', lat: 22.5578, lng: 114.0882, desc: '筍崗西路3002號' },
-            { id: 'h4', name: '深圳市中醫院', district: '福田區', lat: 22.5367, lng: 114.0841, desc: '福華路1号' },
-            { id: 'h5', name: '香港大學深圳醫院', district: '南山區', lat: 22.5284, lng: 113.9912, desc: '海園一路1號' },
-            { id: 'h6', name: '深圳市兒童醫院', district: '福田區', lat: 22.5480, lng: 114.0560, desc: '益田路7019號' },
-            { id: 'h7', name: '腫瘤醫院深圳醫院', district: '龍崗區', lat: 22.6885, lng: 114.2690, desc: '寶荷路113號' },
-            { id: 'h8', name: '深圳市第三人民醫院', district: '龍崗區', lat: 22.6362, lng: 114.1248, desc: '布欄路29號' },
-            { id: 'h9', name: '深圳大學總醫院', district: '南山區', lat: 22.5938, lng: 113.9715, desc: '學苑大道1098號' },
-            { id: 'h10', name: '寶安區人民醫院', district: '寶安區', lat: 22.5594, lng: 113.8967, desc: '龍井二路118號' },
-            { id: 'h11', name: '龍崗區中心醫院', district: '龍崗區', lat: 22.7230, lng: 114.2570, desc: '龍崗大道6082號' },
-            { id: 'h12', name: '中山大學附屬第七醫院', district: '光明區', lat: 22.7820, lng: 113.9120, desc: '圳園路628號' }
-        ];
-
-        // 藥店資料由 data/pharmacies.json 載入（官方 Excel 名單，共 97 家）
+        // 醫院與藥店資料由 data/*.json 載入（官方 Excel + 地址 geocode）
         const PHARMACY_DATA_URL = 'data/pharmacies.json';
+        const HOSPITAL_DATA_URL = 'data/hospitals.json';
+        let keyHospitals = [];
 
         // 轄區顯示名（資料為簡體，介面顯示繁體）
         const districtDisplay = {
@@ -711,15 +697,21 @@
             showLoadingState();
 
             try {
-                const res = await fetch(PHARMACY_DATA_URL);
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                rawPharmacies = await res.json();
+                const [pharmRes, hospRes] = await Promise.all([
+                    fetch(PHARMACY_DATA_URL),
+                    fetch(HOSPITAL_DATA_URL)
+                ]);
+                if (!pharmRes.ok) throw new Error('pharmacies HTTP ' + pharmRes.status);
+                if (!hospRes.ok) throw new Error('hospitals HTTP ' + hospRes.status);
+                rawPharmacies = await pharmRes.json();
+                keyHospitals = await hospRes.json();
                 dataReady = true;
+                renderHospitalChips();
                 renderDistrictTags();
                 update();
             } catch (err) {
-                console.error('Failed to load pharmacy data:', err);
-                showToast('藥店資料載入失敗，請重新整理頁面', 'error');
+                console.error('Failed to load data:', err);
+                showToast('資料載入失敗，請重新整理頁面', 'error');
                 $('resultCount').textContent = '0';
                 $('sortHint').textContent = '資料載入失敗';
             }
