@@ -1,0 +1,305 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>深圳市定點藥店及醫院周邊藥房導航系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse for CSV reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-gradient-to-r from-teal-800 via-emerald-700 to-teal-900 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
+                        <i class="fa-solid fa-hospital-user text-2xl text-emerald-200"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg md:text-xl font-bold tracking-tight">深圳市門診特病定點藥店 & 周邊醫院檢索</h1>
+                        <p class="text-xs text-emerald-100/90">門診特定病種（普通門診統籌、「雙通道」）定點藥店服務平台</p>
+                    </div>
+                </div>
+
+                <!-- 右側工具欄 -->
+                <div class="flex items-center space-x-2">
+                    <label for="csvFileInput" class="cursor-pointer bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span>匯入 CSV</span>
+                    </label>
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+
+                    <button id="exportCsvBtn" class="bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>導出結果</span>
+                    </button>
+
+                    <button id="resetFiltersBtn" class="bg-emerald-950/40 hover:bg-emerald-950/60 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5 border border-emerald-400/30">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>重設</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- 模式切換頁籤 (Tab Bar) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5 flex flex-col sm:flex-row gap-1">
+            <button id="tabHospitalMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-sm transition">
+                <i class="fa-solid fa-hospital"></i>
+                <span>按附近醫院快速尋找</span>
+                <span class="bg-emerald-800/60 text-emerald-100 text-xs px-2 py-0.5 rounded-full font-normal">推薦</span>
+            </button>
+            <button id="tabSearchMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 transition">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>綜合搜尋與轄區篩選</span>
+            </button>
+            <button id="tabGpsMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 transition">
+                <i class="fa-solid fa-location-crosshairs text-emerald-600"></i>
+                <span>我的位置 (GPS 定位)</span>
+            </button>
+        </div>
+
+        <!-- 區塊 1: 按附近醫院尋找面版 -->
+        <section id="hospitalPanel" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-hospital text-emerald-600"></i>
+                        選取深圳市重點醫院，查詢最近的「雙通道」/定點藥房
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">點選醫院後，系統將自動按步行距離排序周邊藥店，並提供導航路線。</p>
+                </div>
+                <div class="flex items-center space-x-2 text-xs text-slate-500">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span>支援院邊藥房特快標籤</span>
+                </div>
+            </div>
+
+            <!-- 醫院選單卡片欄 -->
+            <div id="hospitalChips" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                <!-- 動態注入醫院選項按鈕 -->
+            </div>
+        </section>
+
+        <!-- 區塊 2: 綜合搜尋面版 (搜尋與轄區) -->
+        <section id="searchPanel" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <!-- 搜尋輸入框 -->
+                <div class="md:col-span-7 relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <input type="text" id="searchInput" placeholder="搜尋藥店名稱、詳細地址、機構編碼、醫院關鍵字..." 
+                           class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition text-sm">
+                    <button id="clearSearchBtn" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- 行政轄區篩選 -->
+                <div class="md:col-span-5">
+                    <select id="districtSelect" class="w-full py-2.5 px-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition text-sm text-slate-700">
+                        <option value="">所有行政轄區 (全部)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 熱門轄區快捷標籤 -->
+            <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">轄區快選:</span>
+                <div id="districtTags" class="flex flex-wrap gap-1.5"></div>
+            </div>
+        </section>
+
+        <!-- 區塊 3: 我的位置定位面版 -->
+        <section id="gpsPanel" class="hidden bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl shadow-sm border border-emerald-200/80 p-5 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <h3 class="text-base font-bold text-emerald-900 flex items-center gap-2">
+                        <i class="fa-solid fa-location-arrow text-emerald-600"></i>
+                        使用 GPS 定位尋找距離您最近的藥房
+                    </h3>
+                    <p class="text-xs text-emerald-700">請允許瀏覽器獲取您的位置，系統將自動計算直線距離並進行排序。</p>
+                </div>
+                <button id="getGpsBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2 shrink-0">
+                    <i class="fa-solid fa-crosshairs"></i>
+                    <span>立即定位</span>
+                </button>
+            </div>
+            <div id="gpsStatus" class="hidden text-xs px-3 py-2 bg-white/80 rounded-lg border border-emerald-200 text-emerald-800 font-medium"></div>
+        </section>
+
+        <!-- 結果控制欄與檢視模式切換 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
+            <div class="flex items-center space-x-3 w-full sm:w-auto">
+                <span class="text-xs text-slate-500">
+                    找到 <strong id="resultCount" class="text-emerald-700 font-bold text-base">0</strong> 家符合條件的定點藥店
+                </span>
+                <span id="activeFilterBadge" class="hidden bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs px-2.5 py-0.5 rounded-full font-medium"></span>
+            </div>
+
+            <!-- 卡片 / 表格 切換鈕 -->
+            <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto justify-end">
+                <button id="cardViewBtn" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-800 bg-white shadow-sm transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-border-all"></i>
+                    <span>卡片圖文</span>
+                </button>
+                <button id="tableViewBtn" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-700 transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-list"></i>
+                    <span>表格列印</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 卡片檢視列表 -->
+        <section id="cardContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- 藥店卡片動態渲染 -->
+        </section>
+
+        <!-- 表格檢視列表 -->
+        <section id="tableContainer" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 border-b border-slate-200 font-semibold text-xs">
+                            <th class="py-3 px-4 w-16 text-center">序號</th>
+                            <th class="py-3 px-4 w-24">轄區</th>
+                            <th class="py-3 px-4 w-32">機構編碼</th>
+                            <th class="py-3 px-4">機構名稱</th>
+                            <th class="py-3 px-4">詳細地址</th>
+                            <th class="py-3 px-4 w-28 text-center">距離 / 導航</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <!-- 表格列動態渲染 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 無結果提示 -->
+        <div id="noResults" class="hidden bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400 text-2xl">
+                <i class="fa-solid fa-store-slash"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-700">未找到符合條件的藥店</h3>
+            <p class="text-slate-500 text-xs max-w-md mx-auto">請嘗試選擇其他醫院、縮短搜尋關鍵字或清除篩選條件。</p>
+            <button id="clearAllFiltersBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium transition">
+                重設所有條件
+            </button>
+        </div>
+
+    </main>
+
+    <!-- 頁尾 -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
+        <p>深圳市門診特定病種定點零售藥店與醫院周邊資料庫 · 截至 2026年3月31日</p>
+    </footer>
+
+    <!-- Toast 訊息通知 -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-3 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toastMsg" class="text-xs font-medium">訊息通知</span>
+    </div>
+
+    <!-- JavaScript 核心 logic -->
+    <script>
+        // 深圳市重點醫院清單與經緯度座標
+        const keyHospitals = [
+            { id: 'h1', name: '北京大學深圳醫院', district: '福田區', lat: 22.5562, lng: 114.0538, desc: '蓮花路1120號 (蓮花北)' },
+            { id: 'h2', name: '深圳市人民醫院 (留醫部)', district: '羅湖區', lat: 22.5574, lng: 114.1293, desc: '翠竹路1017號' },
+            { id: 'h3', name: '深圳市第二人民醫院', district: '福田區', lat: 22.5578, lng: 114.0882, desc: '筍崗西路3002號' },
+            { id: 'h4', name: '深圳市中醫院', district: '福田區', lat: 22.5367, lng: 114.0841, desc: '福華路1号' },
+            { id: 'h5', name: '香港大學深圳醫院', district: '南山區', lat: 22.5284, lng: 113.9912, desc: '海園一路1號' },
+            { id: 'h6', name: '深圳市兒童醫院', district: '福田區', lat: 22.5480, lng: 114.0560, desc: '益田路7019號' },
+            { id: 'h7', name: '腫瘤醫院深圳醫院', district: '龍崗區', lat: 22.6885, lng: 114.2690, desc: '寶荷路113號' },
+            { id: 'h8', name: '深圳市第三人民醫院', district: '龍崗區', lat: 22.6362, lng: 114.1248, desc: '布欄路29號' },
+            { id: 'h9', name: '深圳大學總醫院', district: '南山區', lat: 22.5938, lng: 113.9715, desc: '學苑大道1098號' },
+            { id: 'h10', name: '寶安區人民醫院', district: '寶安區', lat: 22.5594, lng: 113.8967, desc: '龍井二路118號' },
+            { id: 'h11', name: '龍崗區中心醫院', district: '龍崗區', lat: 22.7230, lng: 114.2570, desc: '龍崗大道6082號' },
+            { id: 'h12', name: '中山大學附屬第七醫院', district: '光明區', lat: 22.7820, lng: 113.9120, desc: '圳園路628號' }
+        ];
+
+        // 預設藥店數據（包含經緯度以便精準計算與醫院/用戶距離）
+        const defaultPharmacyData = [
+            { id: "1", district: "福田区", code: "P44030700943", name: "深圳市海王星辰健康药房连锁有限公司福田宝莲大厦健康药房", address: "深圳市福田区莲花街道莲花北社区莲花路1116号莲花北宝莲大厦1栋01", lat: 22.5558, lng: 114.0535, isNearHospital: true, hospitalRef: "北京大學深圳醫院" },
+            { id: "2", district: "福田区", code: "P44030400717", name: "深圳市海王星辰健康药房连锁有限公司福华路健康药房", address: "广东省深圳市福田区福田街道办事处圩镇社区福华路73号维也纳酒店福华路73号", lat: 22.5365, lng: 114.0845, isNearHospital: true, hospitalRef: "深圳市中醫院" },
+            { id: "3", district: "福田区", code: "P44030400730", name: "深圳市海王星辰健康药房连锁有限公司福田莲花健康药房", address: "深圳市福田区莲花街道梅富社区梅富村1号A101", lat: 22.5520, lng: 114.0480, isNearHospital: false },
+            { id: "4", district: "福田区", code: "P44030400882", name: "深圳市海王星辰健康药房连锁有限公司红树东方健康药房", address: "深圳市福田区沙头街道金城社区白石路68号碧海云天花园15栋B单元8号之1", lat: 22.5290, lng: 113.9925, isNearHospital: true, hospitalRef: "香港大學深圳醫院" },
+            { id: "5", district: "福田区", code: "P44030400651", name: "深圳市海王星辰健康药房连锁有限公司黄埔雅苑健康药房", address: "广东省深圳市福田区莲花街道福田中心区黄埔雅苑会所二期及商场1层01-2-1", lat: 22.5475, lng: 114.0550, isNearHospital: true, hospitalRef: "深圳市兒童醫院" },
+            { id: "6", district: "罗湖区", code: "P44030300122", name: "国药控股深圳大药房有限公司罗湖店", address: "深圳市罗湖区东门街道东门中路1011号茂业百货首层", lat: 22.5560, lng: 114.1285, isNearHospital: true, hospitalRef: "深圳市人民醫院 (留醫部)" },
+            { id: "7", district: "罗湖区", code: "P44030300258", name: "深圳市海王星辰健康药房连锁有限公司春风路分店", address: "深圳市罗湖区南湖街道春风路3008号向西花园", lat: 22.5390, lng: 114.1210, isNearHospital: false },
+            { id: "8", district: "南山区", code: "P44030500199", name: "深圳市海王星辰健康药房连锁有限公司南海大道店", address: "深圳市南山区粤海街道南海大道2088号", lat: 22.5210, lng: 113.9310, isNearHospital: false },
+            { id: "9", district: "南山区", code: "P44030500812", name: "华润德信行医药（广东）有限公司深圳南山店", address: "深圳市南山区桃源街道学苑大道1088号", lat: 22.5935, lng: 113.9710, isNearHospital: true, hospitalRef: "深圳大學總醫院" },
+            { id: "10", district: "宝安区", code: "P44030600341", name: "深圳市海王星辰健康药房连锁有限公司宝安中心店", address: "深圳市宝安区新安街道宝民一路", lat: 22.5588, lng: 113.8960, isNearHospital: true, hospitalRef: "寶安區人民醫院" },
+            { id: "79", district: "龙岗区", code: "P44030704112", name: "深圳市海王星辰健康药房连锁有限公司欢城广场店", address: "广东省深圳市龙岗区龙岗街道龙岗大道(龙岗段)6483号欢城广场1F", lat: 22.7225, lng: 114.2565, isNearHospital: true, hospitalRef: "龍崗區中心醫院" },
+            { id: "80", district: "龙岗区", code: "P44030503590", name: "深圳市海王星辰健康药房连锁有限公司智富大厦健康药房", address: "广东省深圳市龙岗区龙城街道黄阁坑社区沙田围三街20号颐安智富大厦L129", lat: 22.7010, lng: 114.2230, isNearHospital: false },
+            { id: "81", district: "龙岗区", code: "P44030704959", name: "深圳广药联康医药有限公司龙岗院边药房", address: "深圳市龙岗区龙岗街道南联社区爱南路389号103", lat: 22.6880, lng: 114.2685, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
+            { id: "82", district: "龙岗区", code: "P44030705295", name: "深圳市健一生医药连锁有限公司京基御景时代店", address: "深圳市龙岗区龙城街道黄阁坑社区京基御景时代大厦商业群楼1号137", lat: 22.7030, lng: 114.2210, isNearHospital: false },
+            { id: "83", district: "龙岗区", code: "P44030705807", name: "国药控股深圳延风有限公司龙岗肿瘤大药房", address: "深圳市龙岗区龙岗街道南联社区爱南路391号102-4", lat: 22.6888, lng: 114.2695, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
+            { id: "84", district: "龙岗区", code: "P44030706006", name: "华润德信行医药（广东）有限公司深圳宝荷分店", address: "广东省深圳市龙岗区龙岗街道南联社区爱南路385.387号二单元302", lat: 22.6875, lng: 114.2680, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
+            { id: "85", district: "龙华区", code: "P44030900771", name: "深圳市海王星辰健康药房连锁有限公司观澜悦兴路健康药房", address: "广东省深圳市龙华区福城街道丹湖社区悦兴路", lat: 22.7150, lng: 114.0410, isNearHospital: false },
+            { id: "86", district: "坪山区", code: "P44031000120", name: "深圳市海王星辰健康药房连锁有限公司坪山中心店", address: "深圳市坪山区坪山街道坪山大道2001号", lat: 22.6980, lng: 114.3490, isNearHospital: false },
+            { id: "87", district: "光明区", code: "P44031100234", name: "国药控股深圳大药房有限公司光明店", address: "深圳市光明区光明街道光明大道", lat: 22.7810, lng: 113.9115, isNearHospital: true, hospitalRef: "中山大學附屬第七醫院" },
+            { id: "88", district: "盐田区", code: "P44030800055", name: "深圳市海王星辰健康药房连锁有限公司盐田海景店", address: "深圳市盐田区海山街道海景二路", lat: 22.5530, lng: 114.2380, isNearHospital: false }
+        ];
+
+        // 應用全域狀態
+        let rawPharmacies = [...defaultPharmacyData];
+        let currentFilteredData = [];
+        let currentMode = 'hospital'; // 'hospital', 'search', 'gps'
+        let selectedHospital = keyHospitals[0]; // 預設選擇第一間醫院 (北大深圳醫院)
+        let userGps = null;
+        let viewMode = 'card'; // 'card' 或 'table'
+
+        // DOM 元素引用
+        const tabHospitalMode = document.getElementById('tabHospitalMode');
+        const tabSearchMode = document.getElementById('tabSearchMode');
+        const tabGpsMode = document.getElementById('tabGpsMode');
+
+        const hospitalPanel = document.getElementById('hospitalPanel');
+        const searchPanel = document.getElementById('searchPanel');
+        const gpsPanel = document.getElementById('gpsPanel');
+
+        const hospitalChips = document.getElementById('hospitalChips');
+        const searchInput = document.getElementById('searchInput');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const districtSelect = document.getElementById('districtSelect');
+        const districtTags = document.getElementById('districtTags');
+        const getGpsBtn = document.getElementById('getGpsBtn');
+        const gpsStatus = document.getElementById('gpsStatus');
+
+        const resultCount = document.getElementById('resultCount');
+        const activeFilterBadge = document.getElementById('activeFilterBadge');
+        const cardContainer = document.getElementById('cardContainer');
+        const tableContainer = document.getElementById('tableContainer');
+        const tableBody = document.getE
