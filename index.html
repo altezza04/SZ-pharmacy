@@ -82,6 +82,11 @@
         .no-scrollbar { scrollbar-width: none; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
 
+        /* 行動裝置上預設只顯示前 4 個醫院磁貼，展開後顯示全部 */
+        @media (max-width: 767px) {
+            #hospitalChips.limit-mobile > :nth-child(n+5) { display: none; }
+        }
+
         @media print {
             header, #searchbar, #filterBar, #hospitalSection, #mapPanel, #mapToggleBtn, #toast, footer { display: none !important; }
             #tableContainer { display: block !important; border: none; }
@@ -165,6 +170,31 @@
     <!-- 主要內容區 -->
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
 
+        <!-- 醫院快速尋找（核心功能，置頂突出顯示） -->
+        <section id="hospitalSection" class="rounded-2xl shadow-sm border border-emerald-200/90 bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/80 overflow-hidden">
+            <button id="hospitalToggle" class="w-full px-4 md:px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-emerald-100/40 transition">
+                <span class="flex items-center gap-3 min-w-0">
+                    <span class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0 text-lg">
+                        <i class="fa-solid fa-hospital"></i>
+                    </span>
+                    <span class="text-left min-w-0">
+                        <span class="flex items-center gap-2">
+                            <span class="text-base md:text-lg font-bold text-emerald-950 truncate">按附近醫院快速尋找</span>
+                            <span class="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold shrink-0 shadow-sm">推薦</span>
+                        </span>
+                        <span id="hospitalSectionHint" class="block text-[11px] md:text-xs text-emerald-700/90 truncate">點選醫院，即按步行距離列出周邊定點藥店並顯示地圖</span>
+                    </span>
+                </span>
+                <i id="hospitalToggleIcon" class="fa-solid fa-chevron-up text-emerald-600/70 transition-transform duration-200 shrink-0"></i>
+            </button>
+            <div id="hospitalChipsWrap" class="px-4 md:px-5 pb-4 md:pb-5">
+                <div id="hospitalChips" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 limit-mobile"></div>
+                <button id="showAllHospitalsBtn" class="md:hidden mt-2.5 w-full py-2.5 text-xs font-bold text-emerald-700 bg-emerald-100/80 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition">
+                    <i class="fa-solid fa-angles-down mr-1"></i>顯示全部 12 間醫院
+                </button>
+            </div>
+        </section>
+
         <!-- 篩選狀態列：轄區快選 + 目前參考點 + 結果數 -->
         <section id="filterBar" class="space-y-2.5">
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -179,22 +209,6 @@
                 </button>
             </div>
             <div id="districtTags" class="flex gap-1.5 overflow-x-auto chip-scroll pb-1"></div>
-        </section>
-
-        <!-- 醫院快速尋找（可收合） -->
-        <section id="hospitalSection" class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <button id="hospitalToggle" class="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50 transition">
-                <span class="flex items-center gap-2 text-sm font-bold text-slate-800 min-w-0">
-                    <i class="fa-solid fa-hospital text-emerald-600 shrink-0"></i>
-                    <span class="truncate">按附近醫院快速尋找</span>
-                    <span class="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-semibold shrink-0">推薦</span>
-                    <span id="hospitalSectionHint" class="hidden md:inline text-[11px] text-slate-400 font-normal truncate"></span>
-                </span>
-                <i id="hospitalToggleIcon" class="fa-solid fa-chevron-up text-slate-400 text-xs transition-transform duration-200 shrink-0"></i>
-            </button>
-            <div id="hospitalChipsWrap" class="px-4 pb-3.5">
-                <div id="hospitalChips" class="flex gap-2 overflow-x-auto chip-scroll pb-1"></div>
-            </div>
         </section>
 
         <!-- 結果 + 地圖 雙欄 -->
@@ -417,6 +431,7 @@
         const hospitalChipsWrap = $('hospitalChipsWrap');
         const hospitalChips = $('hospitalChips');
         const hospitalSectionHint = $('hospitalSectionHint');
+        const showAllHospitalsBtn = $('showAllHospitalsBtn');
         const cardContainer = $('cardContainer');
         const tableContainer = $('tableContainer');
         const tableBody = $('tableBody');
@@ -805,6 +820,11 @@
                 hospitalToggleIcon.classList.toggle('rotate-180', !hospitalSectionOpen);
             });
 
+            showAllHospitalsBtn.addEventListener('click', () => {
+                hospitalChips.classList.remove('limit-mobile');
+                showAllHospitalsBtn.classList.add('hidden');
+            });
+
             activeRefChip.addEventListener('click', () => {
                 reference = null;
                 renderHospitalChips();
@@ -987,7 +1007,9 @@
                 activeRefChip.classList.remove('flex');
                 sortHint.textContent = '按轄區與名稱排序；點選醫院或「附近藥店」可依距離排序';
             }
-            hospitalSectionHint.textContent = refPoint && refPoint.type === 'hospital' ? `目前：${refPoint.name}` : '';
+            hospitalSectionHint.textContent = refPoint && refPoint.type === 'hospital'
+                ? `目前選擇：${refPoint.name} · 已按步行距離排序周邊藥店`
+                : '點選醫院，即按步行距離列出周邊定點藥店並顯示地圖';
 
             // 無結果提示語
             if (data.length === 0) {
@@ -1036,32 +1058,38 @@
             hospitalChips.innerHTML = '';
             const activeHospId = reference && reference.type === 'hospital' ? reference.hospital.id : null;
 
+            const baseCls = 'p-2.5 md:p-3 rounded-xl border text-left transition flex flex-col justify-between gap-0.5 min-h-[76px]';
+            const idleCls = 'border-emerald-100/90 bg-white/80 hover:border-emerald-400 hover:bg-emerald-50 text-slate-700 shadow-sm';
+            const activeCls = 'border-emerald-600 bg-emerald-600 text-white shadow-md';
+
+            // 「全部藥店」磁貼
+            const allSelected = !reference;
             const allBtn = document.createElement('button');
             allBtn.setAttribute('data-hospital', '');
-            allBtn.className = 'shrink-0 w-32 p-2.5 rounded-xl border text-left transition flex flex-col justify-center space-y-0.5 ' + (!reference
-                ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 text-emerald-900'
-                : 'border-slate-200 bg-slate-50/60 hover:border-emerald-300 hover:bg-emerald-50/40 text-slate-700');
+            allBtn.className = baseCls + ' ' + (allSelected ? activeCls : idleCls);
             allBtn.innerHTML = `
-                <div class="text-xs font-bold flex items-center gap-1">
-                    <i class="fa-solid fa-list-ul text-emerald-600"></i>全部藥店
+                <div class="flex items-center justify-between gap-1">
+                    <span class="text-[10px] font-bold ${allSelected ? 'text-emerald-100' : 'text-emerald-700'}">快速瀏覽</span>
+                    ${allSelected ? '<i class="fa-solid fa-circle-check text-white text-xs"></i>' : ''}
                 </div>
-                <div class="text-[10px] text-slate-400">不限醫院距離</div>`;
+                <div class="text-xs md:text-sm font-bold leading-tight flex items-center gap-1">
+                    <i class="fa-solid fa-list-ul ${allSelected ? 'text-emerald-100' : 'text-emerald-600'}"></i>全部藥店
+                </div>
+                <div class="text-[10px] ${allSelected ? 'text-emerald-100/90' : 'text-slate-400'} line-clamp-1">不限醫院距離</div>`;
             hospitalChips.appendChild(allBtn);
 
             keyHospitals.forEach(hosp => {
                 const isSelected = activeHospId === hosp.id;
                 const btn = document.createElement('button');
                 btn.setAttribute('data-hospital', hosp.id);
-                btn.className = 'shrink-0 w-44 p-2.5 rounded-xl border text-left transition flex flex-col justify-between space-y-0.5 ' + (isSelected
-                    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 text-emerald-900 shadow-sm'
-                    : 'border-slate-200 bg-slate-50/60 hover:border-emerald-300 hover:bg-emerald-50/40 text-slate-700');
+                btn.className = baseCls + ' ' + (isSelected ? activeCls : idleCls);
                 btn.innerHTML = `
                     <div class="flex items-center justify-between gap-1">
-                        <span class="text-[10px] font-bold text-emerald-700">${escapeHtml(hosp.district)}</span>
-                        ${isSelected ? '<i class="fa-solid fa-circle-check text-emerald-600 text-xs"></i>' : ''}
+                        <span class="text-[10px] font-bold ${isSelected ? 'text-emerald-100' : 'text-emerald-700'}">${escapeHtml(hosp.district)}</span>
+                        ${isSelected ? '<i class="fa-solid fa-circle-check text-white text-xs"></i>' : ''}
                     </div>
-                    <div class="text-xs font-bold leading-tight truncate">${escapeHtml(hosp.name)}</div>
-                    <div class="text-[10px] text-slate-400 truncate">${escapeHtml(hosp.desc)}</div>`;
+                    <div class="text-xs md:text-sm font-bold leading-tight line-clamp-2">${escapeHtml(hosp.name)}</div>
+                    <div class="text-[10px] ${isSelected ? 'text-emerald-100/90' : 'text-slate-400'} line-clamp-1">${escapeHtml(hosp.desc)}</div>`;
                 hospitalChips.appendChild(btn);
             });
         }
