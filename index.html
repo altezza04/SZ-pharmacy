@@ -611,21 +611,26 @@
             createTileLayer().addTo(map);
             const p = project(item.lat, item.lng);
             const pts = [[p.lat, p.lng]];
-            L.marker([p.lat, p.lng], { icon: OverviewMap.pharmacyIcon('·', !!item.isNearHospital) })
+            L.marker([p.lat, p.lng], { icon: OverviewMap.pharmacyIcon('·', !!item.isNearHospital), zIndexOffset: 200 })
                 .addTo(map).bindPopup(`<div style="font-weight:700;font-size:12px;">${escapeHtml(item.name)}</div>`);
             if (refPoint) {
                 const rp = project(refPoint.lat, refPoint.lng);
                 const icon = refPoint.type === 'gps' ? OverviewMap.userIcon() : OverviewMap.hospitalIcon();
-                L.marker([rp.lat, rp.lng], { icon }).addTo(map)
+                L.marker([rp.lat, rp.lng], { icon, zIndexOffset: 500 }).addTo(map)
                     .bindPopup(`<div style="font-weight:700;font-size:12px;">${escapeHtml(refPoint.name)}</div>`);
                 L.polyline([[rp.lat, rp.lng], [p.lat, p.lng]], { color: '#059669', weight: 3, dashArray: '6 6', opacity: 0.8 }).addTo(map);
                 pts.push([rp.lat, rp.lng]);
-                map.fitBounds(pts, { padding: [28, 28], maxZoom: 17 });
-            } else {
-                map.setView([p.lat, p.lng], 17);
             }
             miniMaps.set(String(item.id), map);
-            setTimeout(() => map.invalidateSize(), 80);
+            // invalidateSize first — fitBounds before layout is wrong and leaves hospital off-screen
+            setTimeout(() => {
+                map.invalidateSize();
+                if (pts.length > 1) {
+                    map.fitBounds(pts, { padding: [36, 36], maxZoom: 16 });
+                } else {
+                    map.setView(pts[0], 16);
+                }
+            }, 120);
         }
 
         /* ============================= 單店地圖 Modal ============================= */
@@ -666,24 +671,24 @@
                 if (this.map) {
                     this.layerGroup.clearLayers();
                     const p = project(item.lat, item.lng);
-                    L.marker([p.lat, p.lng], { icon: OverviewMap.pharmacyIcon('·', !!item.isNearHospital) }).addTo(this.layerGroup);
+                    L.marker([p.lat, p.lng], { icon: OverviewMap.pharmacyIcon('·', !!item.isNearHospital), zIndexOffset: 200 }).addTo(this.layerGroup);
                     const pts = [[p.lat, p.lng]];
                     const refPoint = getReferencePoint();
                     if (refPoint) {
                         const rp = project(refPoint.lat, refPoint.lng);
                         const icon = refPoint.type === 'gps' ? OverviewMap.userIcon() : OverviewMap.hospitalIcon();
-                        L.marker([rp.lat, rp.lng], { icon }).addTo(this.layerGroup);
+                        L.marker([rp.lat, rp.lng], { icon, zIndexOffset: 500 }).addTo(this.layerGroup);
                         L.polyline([[rp.lat, rp.lng], [p.lat, p.lng]], { color: '#059669', weight: 3, dashArray: '6 6', opacity: 0.8 }).addTo(this.layerGroup);
                         pts.push([rp.lat, rp.lng]);
                     }
                     setTimeout(() => {
                         this.map.invalidateSize();
                         if (pts.length > 1) {
-                            this.map.fitBounds(pts, { padding: [40, 40], maxZoom: 17 });
+                            this.map.fitBounds(pts, { padding: [48, 48], maxZoom: 16 });
                         } else {
-                            this.map.flyTo(pts[0], 17, { animate: true, duration: 0.45 });
+                            this.map.setView(pts[0], 16);
                         }
-                    }, 80);
+                    }, 120);
                 }
             },
 
