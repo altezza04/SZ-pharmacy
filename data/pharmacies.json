@@ -28,7 +28,9 @@
     "address": "深圳市福田区莲花街道梅富社区梅富村1号A101",
     "lat": 22.552045,
     "lng": 114.04903,
-    "pinApprox": true
+    "pinApprox": true,
+    "isNearHospital": true,
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "4",
@@ -49,7 +51,9 @@
     "address": "广东省深圳市福田区莲花街道福田中心区黄埔雅苑会所二期及商场1层01-2-1号",
     "lat": 22.552416,
     "lng": 114.04997,
-    "pinApprox": true
+    "pinApprox": true,
+    "isNearHospital": true,
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "6",
@@ -78,9 +82,7 @@
     "name": "国药控股国大药房（深圳）连锁有限公司彩田分店",
     "address": "深圳市福田区福田街道福山社区彩田路2014号福源大厦彩田路2014-6号",
     "lat": 22.541289,
-    "lng": 114.062995,
-    "isNearHospital": true,
-    "hospitalRef": "深圳市中醫院"
+    "lng": 114.062995
   },
   {
     "id": "9",
@@ -132,7 +134,7 @@
     "lng": 114.047902,
     "pinApprox": true,
     "isNearHospital": true,
-    "hospitalRef": "北京大學深圳醫院"
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "14",
@@ -141,9 +143,7 @@
     "name": "深圳市圆心友和医药大药房有限公司福华药店",
     "address": "深圳市福田区福田街道福虹路中电福华大厦101室",
     "lat": 22.530897,
-    "lng": 114.062671,
-    "isNearHospital": true,
-    "hospitalRef": "深圳市中醫院"
+    "lng": 114.062671
   },
   {
     "id": "15",
@@ -163,7 +163,9 @@
     "address": "深圳市福田区莲花街道景田社区商报东路149号景龙大厦二栋105",
     "lat": 22.55271,
     "lng": 114.050486,
-    "pinApprox": true
+    "pinApprox": true,
+    "isNearHospital": true,
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "17",
@@ -182,7 +184,9 @@
     "address": "深圳市福田区莲花街道莲花北社区莲花北村吉莲大厦一栋101C",
     "lat": 22.552993,
     "lng": 114.049457,
-    "pinApprox": true
+    "pinApprox": true,
+    "isNearHospital": true,
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "19",
@@ -192,9 +196,7 @@
     "address": "广东省深圳市福田区笋岗西路银华大厦第二十二层2208室",
     "lat": 22.524339,
     "lng": 114.051436,
-    "pinApprox": true,
-    "isNearHospital": true,
-    "hospitalRef": "深圳市兒童醫院"
+    "pinApprox": true
   },
   {
     "id": "20",
@@ -204,9 +206,7 @@
     "address": "深圳市福田区梅山苑小区009栋一层A007号",
     "lat": 22.524627,
     "lng": 114.048464,
-    "pinApprox": true,
-    "isNearHospital": true,
-    "hospitalRef": "深圳市兒童醫院"
+    "pinApprox": true
   },
   {
     "id": "21",
@@ -215,9 +215,7 @@
     "name": "国药控股广州有限公司深圳大药房",
     "address": "深圳市福田区园岭街道八卦四路15号一致药业大厦1楼西侧",
     "lat": 22.559489,
-    "lng": 114.091644,
-    "isNearHospital": true,
-    "hospitalRef": "深圳市第二人民醫院"
+    "lng": 114.091644
   },
   {
     "id": "22",
@@ -236,7 +234,9 @@
     "name": "深圳市海王星辰健康药房连锁有限公司福田嘉汇新城健康药房",
     "address": "深圳市福田区福田街道福南社区深南中路3027号嘉汇新城汇时代商铺103-104",
     "lat": 22.542927,
-    "lng": 114.076788
+    "lng": 114.076788,
+    "isNearHospital": true,
+    "hospitalRef": "深圳市中醫院"
   },
   {
     "id": "24",
@@ -257,7 +257,7 @@
     "lng": 114.048744,
     "pinApprox": true,
     "isNearHospital": true,
-    "hospitalRef": "北京大學深圳醫院"
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "26",
@@ -266,7 +266,9 @@
     "name": "国药控股广州有限公司深圳福田笋岗西路大药房",
     "address": "深圳市福田区华富街道梅岗社区笋岗西路3004号银华大夏10G10",
     "lat": 22.558616,
-    "lng": 114.080763
+    "lng": 114.080763,
+    "isNearHospital": true,
+    "hospitalRef": "深圳市第二人民醫院"
   },
   {
     "id": "27",
@@ -275,7 +277,9 @@
     "name": "深圳广药联康医药有限公司药械分公司",
     "address": "深圳市福田区莲花街道福新社区益田路6013号江苏大厦A､B座B座907908909",
     "lat": 22.544353,
-    "lng": 114.050995
+    "lng": 114.050995,
+    "isNearHospital": true,
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "28",
@@ -299,7 +303,7 @@
     "lng": 114.048095,
     "pinApprox": true,
     "isNearHospital": true,
-    "hospitalRef": "北京大學深圳醫院"
+    "hospitalRef": "深圳市兒童醫院"
   },
   {
     "id": "30",

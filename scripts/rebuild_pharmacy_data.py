@@ -16,19 +16,20 @@ XLSX = ROOT / 'data' / 'pharmacies.xlsx'
 OUT = ROOT / 'data' / 'pharmacies.json'
 
 # 深圳市重點醫院（官方名稱 + 地址，供 geocode）
+# 官方地址 + 經核對的 POI 座標（優先醫院名稱 geocode / OSM，避免街道中心點誤判）
 HOSPITALS = [
-    {'id': 'h1', 'name': '北京大學深圳醫院', 'name_sc': '北京大学深圳医院', 'district': '福田區', 'address': '深圳市福田区莲花路1120号'},
-    {'id': 'h2', 'name': '深圳市人民醫院（留醫部）', 'name_sc': '深圳市人民医院（留医部）', 'district': '羅湖區', 'address': '深圳市罗湖区翠竹路1017号'},
-    {'id': 'h3', 'name': '深圳市第二人民醫院', 'name_sc': '深圳市第二人民医院', 'district': '福田區', 'address': '深圳市福田区笋岗西路3002号'},
-    {'id': 'h4', 'name': '深圳市中醫院', 'name_sc': '深圳市中医院', 'district': '福田區', 'address': '深圳市福田区福华路1号'},
-    {'id': 'h5', 'name': '香港大學深圳醫院', 'name_sc': '香港大学深圳医院', 'district': '南山區', 'address': '深圳市南山区海园一路1号'},
-    {'id': 'h6', 'name': '深圳市兒童醫院', 'name_sc': '深圳市儿童医院', 'district': '福田區', 'address': '深圳市福田区益田路7019号'},
-    {'id': 'h7', 'name': '中國醫學科學院腫瘤醫院深圳醫院', 'name_sc': '中国医学科学院肿瘤医院深圳医院', 'district': '龍崗區', 'address': '深圳市龙岗区宝荷路113号'},
-    {'id': 'h8', 'name': '深圳市第三人民醫院', 'name_sc': '深圳市第三人民医院', 'district': '龍崗區', 'address': '深圳市龙岗区布澜路29号'},
-    {'id': 'h9', 'name': '深圳大學總醫院', 'name_sc': '深圳大学总医院', 'district': '南山區', 'address': '深圳市南山区学苑大道1098号'},
-    {'id': 'h10', 'name': '寶安區人民醫院', 'name_sc': '宝安区人民医院', 'district': '寶安區', 'address': '深圳市宝安区龙井二路118号'},
-    {'id': 'h11', 'name': '龍崗區中心醫院', 'name_sc': '龙岗区中心医院', 'district': '龍崗區', 'address': '深圳市龙岗区龙岗大道6082号'},
-    {'id': 'h12', 'name': '中山大學附屬第七醫院', 'name_sc': '中山大学附属第七医院', 'district': '光明區', 'address': '深圳市光明区圳园路628号'},
+    {'id': 'h1', 'name': '北京大學深圳醫院', 'name_sc': '北京大学深圳医院', 'district': '福田區', 'address': '深圳市福田区莲花路1120号', 'lat': 22.559265, 'lng': 114.044095},
+    {'id': 'h2', 'name': '深圳市人民醫院（留醫部）', 'name_sc': '深圳市人民医院（留医部）', 'district': '羅湖區', 'address': '深圳市罗湖区东门北路1017号', 'lat': 22.559836, 'lng': 114.122751},
+    {'id': 'h3', 'name': '深圳市第二人民醫院', 'name_sc': '深圳市第二人民医院', 'district': '福田區', 'address': '深圳市福田区笋岗西路3002号', 'lat': 22.559792, 'lng': 114.080573},
+    {'id': 'h4', 'name': '深圳市中醫院', 'name_sc': '深圳市中医院', 'district': '福田區', 'address': '深圳市福田区福华路1号', 'lat': 22.539755, 'lng': 114.080333},
+    {'id': 'h5', 'name': '香港大學深圳醫院', 'name_sc': '香港大学深圳医院', 'district': '福田區', 'address': '深圳市福田区海园一路1号', 'lat': 22.528516, 'lng': 113.991192},
+    {'id': 'h6', 'name': '深圳市兒童醫院', 'name_sc': '深圳市儿童医院', 'district': '福田區', 'address': '深圳市福田区益田路7019号', 'lat': 22.550092, 'lng': 114.049301},
+    {'id': 'h7', 'name': '中國醫學科學院腫瘤醫院深圳醫院', 'name_sc': '中国医学科学院肿瘤医院深圳医院', 'district': '龍崗區', 'address': '深圳市龙岗区宝荷路113号', 'lat': 22.697156, 'lng': 114.246156},
+    {'id': 'h8', 'name': '深圳市第三人民醫院', 'name_sc': '深圳市第三人民医院', 'district': '龍崗區', 'address': '深圳市龙岗区布澜路29号', 'lat': 22.638232, 'lng': 114.123374},
+    {'id': 'h9', 'name': '深圳大學總醫院', 'name_sc': '深圳大学总医院', 'district': '南山區', 'address': '深圳市南山区学苑大道1098号', 'lat': 22.597126, 'lng': 113.982434},
+    {'id': 'h10', 'name': '寶安區人民醫院', 'name_sc': '宝安区人民医院', 'district': '寶安區', 'address': '深圳市宝安区龙井二路118号', 'lat': 22.564596, 'lng': 113.909713},
+    {'id': 'h11', 'name': '龍崗區中心醫院', 'name_sc': '龙岗区中心医院', 'district': '龍崗區', 'address': '深圳市龙岗区龙岗大道6082号', 'lat': 22.723037, 'lng': 114.242656},
+    {'id': 'h12', 'name': '中山大學附屬第七醫院', 'name_sc': '中山大学附属第七医院', 'district': '光明區', 'address': '深圳市光明区圳园路628号', 'lat': 22.789493, 'lng': 113.947443},
 ]
 
 SUBDISTRICT_RE = re.compile(r'([\u4e00-\u9fff]+街道)')
@@ -331,11 +332,19 @@ def main():
 
     hospitals_out = []
     for h in HOSPITALS:
-        pt = geocode(h['address']) or geocode(h['name_sc'])
-        if not pt or not in_shenzhen(pt[0], pt[1]):
-            raise SystemExit(f"Failed to geocode hospital: {h['name']}")
+        # Prefer researched POI coordinates when present; otherwise geocode.
+        if 'lat' in h and 'lng' in h:
+            pt = (h['lat'], h['lng'], '')
+        else:
+            pt = geocode(h['address']) or geocode(h['name_sc'])
+            if not pt or not in_shenzhen(pt[0], pt[1]):
+                raise SystemExit(f"Failed to geocode hospital: {h['name']}")
         hospitals_out.append({
-            **h,
+            'id': h['id'],
+            'name': h['name'],
+            'name_sc': h['name_sc'],
+            'district': h['district'],
+            'address': h['address'],
             'lat': round(pt[0], 6),
             'lng': round(pt[1], 6),
             'desc': h['address'].replace('深圳市', '').replace('广东省', ''),
