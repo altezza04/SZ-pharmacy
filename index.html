@@ -13,8 +13,7 @@
     <!-- Leaflet Map -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <!-- PapaParse for CSV reading -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- PapaParse removed: data loaded from data/pharmacies.json -->
     <script>
         tailwind.config = {
             theme: {
@@ -87,8 +86,15 @@
             #hospitalChips.limit-mobile > :nth-child(n+5) { display: none; }
         }
 
+        /* 字體大小（由 --font-scale 控制根字級） */
+        html { font-size: calc(16px * var(--font-scale, 1)); }
+
+        /* 置頂列：向下捲動時隱藏，向上捲動時顯示 */
+        #stickyHead { transition: transform 0.28s ease; will-change: transform; }
+        #stickyHead.head-hidden { transform: translateY(-100%); }
+
         @media print {
-            header, #searchbar, #filterBar, #hospitalSection, #mapPanel, #mapToggleBtn, #toast, footer { display: none !important; }
+            #stickyHead, #headSpacer, #filterBar, #hospitalSection, #mapPanel, #mapToggleBtn, #toast, footer { display: none !important; }
             #tableContainer { display: block !important; border: none; }
             #cardContainer { display: none !important; }
         }
@@ -96,41 +102,25 @@
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
 
-    <!-- 置頂區：標題列 + 搜尋工具列 -->
-    <div id="stickyHead" class="sticky top-0 z-30 shadow-md">
-        <header class="bg-gradient-to-r from-teal-800 via-emerald-700 to-teal-900 text-white">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-3">
-                <div class="flex items-center space-x-3 min-w-0">
-                    <div class="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/20 shrink-0">
-                        <i class="fa-solid fa-hospital-user text-xl text-emerald-200"></i>
-                    </div>
-                    <div class="min-w-0">
-                        <h1 class="text-base md:text-lg font-bold tracking-tight truncate">深圳市定點藥店 & 醫院周邊藥房導航</h1>
-                        <p class="hidden sm:block text-[11px] text-emerald-100/90">門診特定病種（普通門診統籌、「雙通道」）定點藥店服務平台</p>
-                    </div>
+    <!-- 置頂區（簡化標題 + 搜尋工具列，捲動時自動隱藏） -->
+    <div id="stickyHead" class="fixed top-0 left-0 right-0 z-30 shadow-md bg-white">
+        <div id="topBar" class="bg-emerald-800 text-white border-b border-emerald-900/30">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-2">
+                <i class="fa-solid fa-hospital-user text-emerald-200 shrink-0"></i>
+                <h1 class="text-sm font-bold tracking-tight truncate flex-grow">深圳定點藥店導航</h1>
+                <div class="flex items-center gap-1 shrink-0" role="group" aria-label="字體大小">
+                    <button id="fontSmBtn" title="縮小字體" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold transition">A-</button>
+                    <button id="fontMdBtn" title="預設字體" class="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/30 text-xs font-bold transition ring-1 ring-white/30">A</button>
+                    <button id="fontLgBtn" title="放大字體" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-bold transition">A+</button>
                 </div>
-                <div class="flex items-center space-x-2 shrink-0">
-                    <label for="csvFileInput" title="匯入藥店 CSV 資料"
-                           class="cursor-pointer bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5">
-                        <i class="fa-solid fa-file-import"></i>
-                        <span class="hidden sm:inline">匯入 CSV</span>
-                    </label>
-                    <input type="file" id="csvFileInput" accept=".csv" class="hidden">
-                    <button id="exportCsvBtn" title="導出目前篩選結果"
-                            class="bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5">
-                        <i class="fa-solid fa-file-export"></i>
-                        <span class="hidden sm:inline">導出結果</span>
-                    </button>
-                    <button id="resetFiltersBtn" title="重設所有檢索條件"
-                            class="bg-emerald-950/40 hover:bg-emerald-950/60 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5 border border-emerald-400/30">
-                        <i class="fa-solid fa-rotate-left"></i>
-                        <span class="hidden sm:inline">重設</span>
-                    </button>
-                </div>
+                <button id="resetFiltersBtn" title="重設所有檢索條件"
+                        class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 transition flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                </button>
             </div>
-        </header>
+        </div>
 
-        <!-- 全域搜尋列（任何時候皆可搜尋） -->
+        <!-- 全域搜尋列 -->
         <div id="searchbar" class="bg-white/95 backdrop-blur border-b border-slate-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center gap-2">
                 <div class="relative flex-grow">
@@ -166,6 +156,7 @@
             </div>
         </div>
     </div>
+    <div id="headSpacer" aria-hidden="true"></div>
 
     <!-- 主要內容區 -->
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
@@ -280,7 +271,7 @@
 
     <!-- 頁尾 -->
     <footer class="bg-white border-t border-slate-200 py-6 mt-10 text-center text-xs text-slate-500 space-y-1">
-        <p>深圳市門診特定病種定點零售藥店與醫院周邊資料庫 · 截至 2026年3月31日</p>
+        <p>深圳市門診特定病種定點零售藥店名單 · 資料截至 2026年6月30日（來源：深圳市醫療保障局）</p>
         <p class="text-[10px] text-slate-400">地圖僅供位置參考，實際路線請以導航 App 為準</p>
     </footer>
 
@@ -338,42 +329,14 @@
             { id: 'h12', name: '中山大學附屬第七醫院', district: '光明區', lat: 22.7820, lng: 113.9120, desc: '圳園路628號' }
         ];
 
-        // 預設藥店數據（WGS-84 經緯度，用於距離計算與地圖標記）
-        const defaultPharmacyData = [
-            { id: "1", district: "福田区", code: "P44030700943", name: "深圳市海王星辰健康药房连锁有限公司福田宝莲大厦健康药房", address: "深圳市福田区莲花街道莲花北社区莲花路1116号莲花北宝莲大厦1栋01", lat: 22.5558, lng: 114.0535, isNearHospital: true, hospitalRef: "北京大學深圳醫院" },
-            { id: "2", district: "福田区", code: "P44030400717", name: "深圳市海王星辰健康药房连锁有限公司福华路健康药房", address: "广东省深圳市福田区福田街道办事处圩镇社区福华路73号维也纳酒店福华路73号", lat: 22.5365, lng: 114.0845, isNearHospital: true, hospitalRef: "深圳市中醫院" },
-            { id: "3", district: "福田区", code: "P44030400730", name: "深圳市海王星辰健康药房连锁有限公司福田莲花健康药房", address: "深圳市福田区莲花街道梅富社区梅富村1号A101", lat: 22.5520, lng: 114.0480, isNearHospital: false },
-            { id: "4", district: "福田区", code: "P44030400882", name: "深圳市海王星辰健康药房连锁有限公司红树东方健康药房", address: "深圳市福田区沙头街道金城社区白石路68号碧海云天花园15栋B单元8号之1", lat: 22.5290, lng: 113.9925, isNearHospital: true, hospitalRef: "香港大學深圳醫院" },
-            { id: "5", district: "福田区", code: "P44030400651", name: "深圳市海王星辰健康药房连锁有限公司黄埔雅苑健康药房", address: "广东省深圳市福田区莲花街道福田中心区黄埔雅苑会所二期及商场1层01-2-1", lat: 22.5475, lng: 114.0550, isNearHospital: true, hospitalRef: "深圳市兒童醫院" },
-            { id: "6", district: "罗湖区", code: "P44030300122", name: "国药控股深圳大药房有限公司罗湖店", address: "深圳市罗湖区东门街道东门中路1011号茂业百货首层", lat: 22.5560, lng: 114.1285, isNearHospital: true, hospitalRef: "深圳市人民醫院 (留醫部)" },
-            { id: "7", district: "罗湖区", code: "P44030300258", name: "深圳市海王星辰健康药房连锁有限公司春风路分店", address: "深圳市罗湖区南湖街道春风路3008号向西花园", lat: 22.5390, lng: 114.1210, isNearHospital: false },
-            { id: "8", district: "南山区", code: "P44030500199", name: "深圳市海王星辰健康药房连锁有限公司南海大道店", address: "深圳市南山区粤海街道南海大道2088号", lat: 22.5210, lng: 113.9310, isNearHospital: false },
-            { id: "9", district: "南山区", code: "P44030500812", name: "华润德信行医药（广东）有限公司深圳南山店", address: "深圳市南山区桃源街道学苑大道1088号", lat: 22.5935, lng: 113.9710, isNearHospital: true, hospitalRef: "深圳大學總醫院" },
-            { id: "10", district: "宝安区", code: "P44030600341", name: "深圳市海王星辰健康药房连锁有限公司宝安中心店", address: "深圳市宝安区新安街道宝民一路", lat: 22.5588, lng: 113.8960, isNearHospital: true, hospitalRef: "寶安區人民醫院" },
-            { id: "79", district: "龙岗区", code: "P44030704112", name: "深圳市海王星辰健康药房连锁有限公司欢城广场店", address: "广东省深圳市龙岗区龙岗街道龙岗大道(龙岗段)6483号欢城广场1F", lat: 22.7225, lng: 114.2565, isNearHospital: true, hospitalRef: "龍崗區中心醫院" },
-            { id: "80", district: "龙岗区", code: "P44030503590", name: "深圳市海王星辰健康药房连锁有限公司智富大厦健康药房", address: "广东省深圳市龙岗区龙城街道黄阁坑社区沙田围三街20号颐安智富大厦L129", lat: 22.7010, lng: 114.2230, isNearHospital: false },
-            { id: "81", district: "龙岗区", code: "P44030704959", name: "深圳广药联康医药有限公司龙岗院边药房", address: "深圳市龙岗区龙岗街道南联社区爱南路389号103", lat: 22.6880, lng: 114.2685, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
-            { id: "82", district: "龙岗区", code: "P44030705295", name: "深圳市健一生医药连锁有限公司京基御景时代店", address: "深圳市龙岗区龙城街道黄阁坑社区京基御景时代大厦商业群楼1号137", lat: 22.7030, lng: 114.2210, isNearHospital: false },
-            { id: "83", district: "龙岗区", code: "P44030705807", name: "国药控股深圳延风有限公司龙岗肿瘤大药房", address: "深圳市龙岗区龙岗街道南联社区爱南路391号102-4", lat: 22.6888, lng: 114.2695, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
-            { id: "84", district: "龙岗区", code: "P44030706006", name: "华润德信行医药（广东）有限公司深圳宝荷分店", address: "广东省深圳市龙岗区龙岗街道南联社区爱南路385.387号二单元302", lat: 22.6875, lng: 114.2680, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
-            { id: "85", district: "龙华区", code: "P44030900771", name: "深圳市海王星辰健康药房连锁有限公司观澜悦兴路健康药房", address: "广东省深圳市龙华区福城街道丹湖社区悦兴路", lat: 22.7150, lng: 114.0410, isNearHospital: false },
-            { id: "86", district: "坪山区", code: "P44031000120", name: "深圳市海王星辰健康药房连锁有限公司坪山中心店", address: "深圳市坪山区坪山街道坪山大道2001号", lat: 22.6980, lng: 114.3490, isNearHospital: false },
-            { id: "87", district: "光明区", code: "P44031100234", name: "国药控股深圳大药房有限公司光明店", address: "深圳市光明区光明街道光明大道", lat: 22.7810, lng: 113.9115, isNearHospital: true, hospitalRef: "中山大學附屬第七醫院" },
-            { id: "88", district: "盐田区", code: "P44030800055", name: "深圳市海王星辰健康药房连锁有限公司盐田海景店", address: "深圳市盐田区海山街道海景二路", lat: 22.5530, lng: 114.2380, isNearHospital: false }
-        ];
+        // 藥店資料由 data/pharmacies.json 載入（官方 Excel 名單，共 97 家）
+        const PHARMACY_DATA_URL = 'data/pharmacies.json';
 
         // 轄區顯示名（資料為簡體，介面顯示繁體）
         const districtDisplay = {
             '福田区': '福田區', '罗湖区': '羅湖區', '南山区': '南山區', '盐田区': '鹽田區',
             '宝安区': '寶安區', '龙岗区': '龍崗區', '龙华区': '龍華區', '坪山区': '坪山區',
             '光明区': '光明區', '大鹏新区': '大鵬新區'
-        };
-
-        // 各轄區概略中心點 (WGS-84)，供 CSV 匯入缺少座標時推估位置
-        const districtCenters = {
-            '福田区': [22.5410, 114.0579], '罗湖区': [22.5483, 114.1316], '南山区': [22.5333, 113.9304],
-            '盐田区': [22.5567, 114.2379], '宝安区': [22.5555, 113.8845], '龙岗区': [22.7209, 114.2469],
-            '龙华区': [22.6967, 114.0297], '坪山区': [22.6908, 114.3508], '光明区': [22.7489, 113.9359]
         };
 
         /* ============================= 簡繁正規化（修正搜尋） ============================= */
@@ -405,7 +368,8 @@
         }
 
         /* ============================= 全域狀態 ============================= */
-        let rawPharmacies = [...defaultPharmacyData];
+        let rawPharmacies = [];
+        let dataReady = false;
         let currentFilteredData = [];
         // 參考點：null | { type:'hospital', hospital } | { type:'gps', lat, lng }
         let reference = null;
@@ -414,6 +378,9 @@
         let viewMode = 'card'; // 'card' 或 'table'
         let hospitalSectionOpen = true;
         let mobileMapOpen = false;
+        let fontScaleIndex = 1; // 0=sm, 1=md, 2=lg
+        const FONT_SCALES = [0.9, 1, 1.15];
+        let lastScrollY = 0;
 
         /* ============================= DOM 參照 ============================= */
         const $ = id => document.getElementById(id);
@@ -441,8 +408,10 @@
         const tableViewBtn = $('tableViewBtn');
         const mapToggleBtn = $('mapToggleBtn');
         const mapPanel = $('mapPanel');
-        const csvFileInput = $('csvFileInput');
-        const exportCsvBtn = $('exportCsvBtn');
+        const headSpacer = $('headSpacer');
+        const fontSmBtn = $('fontSmBtn');
+        const fontMdBtn = $('fontMdBtn');
+        const fontLgBtn = $('fontLgBtn');
         const resetFiltersBtn = $('resetFiltersBtn');
         const clearAllFiltersBtn = $('clearAllFiltersBtn');
         const mapModal = $('mapModal');
@@ -731,32 +700,89 @@
         };
 
         /* ============================= 初始化 ============================= */
-        document.addEventListener('DOMContentLoaded', () => {
-            renderDistrictTags();
-            renderHospitalChips();
+        document.addEventListener('DOMContentLoaded', async () => {
+            initFontScale();
             setupEventListeners();
-            setStickyVar();
-            window.addEventListener('resize', setStickyVar);
-            update();
+            setupHeaderAutoHide();
+            setHeadSpacer();
+            window.addEventListener('resize', setHeadSpacer);
+
+            renderHospitalChips();
+            showLoadingState();
+
+            try {
+                const res = await fetch(PHARMACY_DATA_URL);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                rawPharmacies = await res.json();
+                dataReady = true;
+                renderDistrictTags();
+                update();
+            } catch (err) {
+                console.error('Failed to load pharmacy data:', err);
+                showToast('藥店資料載入失敗，請重新整理頁面', 'error');
+                $('resultCount').textContent = '0';
+                $('sortHint').textContent = '資料載入失敗';
+            }
 
             if (!window.L) {
-                // 地圖函式庫載入失敗時優雅降級
                 $('overviewMap').innerHTML = '<div class="h-full flex items-center justify-center text-xs text-slate-400 p-6 text-center">地圖元件載入失敗，請檢查網路後重新整理</div>';
                 mapToggleBtn.classList.add('hidden');
             } else {
                 detectTileProvider(() => {
                     OverviewMap.init();
-                    ModalMap.init && null; // modal 地圖採惰性初始化
                     OverviewMap.update(currentFilteredData, getReferencePoint());
                     OverviewMap.invalidate();
                 });
             }
         });
 
-        // 依置頂區高度設定地圖 sticky 偏移
-        function setStickyVar() {
+        function showLoadingState() {
+            cardContainer.innerHTML = '<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-10 text-center text-sm text-slate-500"><i class="fa-solid fa-spinner fa-spin text-emerald-600 mr-2"></i>正在載入藥店名單…</div>';
+            cardContainer.classList.remove('hidden');
+            tableContainer.classList.add('hidden');
+            noResults.classList.add('hidden');
+        }
+
+        // 依置頂區高度設定 spacer 與地圖 sticky 偏移
+        function setHeadSpacer() {
             const h = stickyHead.offsetHeight || 0;
+            headSpacer.style.height = h + 'px';
             mapPanel.style.top = (h + 12) + 'px';
+        }
+
+        function setupHeaderAutoHide() {
+            window.addEventListener('scroll', () => {
+                const y = window.scrollY;
+                if (y > 72 && y > lastScrollY + 6) {
+                    stickyHead.classList.add('head-hidden');
+                } else if (y < lastScrollY - 6 || y < 24) {
+                    stickyHead.classList.remove('head-hidden');
+                }
+                lastScrollY = y;
+            }, { passive: true });
+        }
+
+        const FONT_BTN_IDS = ['fontSmBtn', 'fontMdBtn', 'fontLgBtn'];
+        function initFontScale() {
+            const saved = parseInt(localStorage.getItem('fontScaleIndex') || '1', 10);
+            fontScaleIndex = Number.isFinite(saved) ? Math.min(2, Math.max(0, saved)) : 1;
+            applyFontScale();
+        }
+        function applyFontScale() {
+            document.documentElement.style.setProperty('--font-scale', String(FONT_SCALES[fontScaleIndex]));
+            localStorage.setItem('fontScaleIndex', String(fontScaleIndex));
+            FONT_BTN_IDS.forEach((id, i) => {
+                const btn = $(id);
+                if (!btn) return;
+                btn.className = 'w-8 h-8 rounded-lg text-xs font-bold transition ' + (i === fontScaleIndex
+                    ? 'bg-white/25 ring-1 ring-white/40'
+                    : 'bg-white/10 hover:bg-white/20') + (i === 2 ? ' text-sm' : '');
+            });
+            setHeadSpacer();
+        }
+        function setFontScale(idx) {
+            fontScaleIndex = Math.min(2, Math.max(0, idx));
+            applyFontScale();
         }
 
         /* ============================= 事件綁定 ============================= */
@@ -835,6 +861,10 @@
             tableViewBtn.addEventListener('click', () => setViewMode('table'));
             getGpsBtn.addEventListener('click', handleGpsLocation);
 
+            fontSmBtn.addEventListener('click', () => setFontScale(fontScaleIndex - 1));
+            fontMdBtn.addEventListener('click', () => setFontScale(1));
+            fontLgBtn.addEventListener('click', () => setFontScale(fontScaleIndex + 1));
+
             mapToggleBtn.addEventListener('click', () => {
                 mobileMapOpen = !mobileMapOpen;
                 mapPanel.classList.toggle('hidden', !mobileMapOpen);
@@ -843,8 +873,6 @@
 
             resetFiltersBtn.addEventListener('click', resetAll);
             clearAllFiltersBtn.addEventListener('click', resetAll);
-            csvFileInput.addEventListener('change', handleCsvUpload);
-            exportCsvBtn.addEventListener('click', exportFilteredCsv);
 
             // Modal 事件
             mapModalClose.addEventListener('click', () => ModalMap.close());
@@ -991,6 +1019,7 @@
         }
 
         function update() {
+            if (!dataReady) return;
             const { data, refPoint } = computeResults();
             currentFilteredData = data;
 
@@ -1297,94 +1326,6 @@
             renderHospitalChips();
             update();
             showToast('已重設所有檢索條件');
-        }
-
-        /* ============================= CSV 匯入 / 導出 ============================= */
-        // 以字串雜湊產生 deterministic 的微小偏移，避免重疊且每次匯入結果一致
-        function hashJitter(str, range) {
-            let h = 0;
-            const s = String(str || '');
-            for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-            return ((h % 1000) / 1000 - 0.5) * range;
-        }
-
-        function handleCsvUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function (results) {
-                    if (!results.data || results.data.length === 0) return;
-                    const parsed = [];
-                    results.data.forEach((row, idx) => {
-                        const district = row['所属辖区'] || row['轄區'] || '';
-                        const code = row['机构编码'] || row['機構編碼'] || '';
-                        const name = row['机构名称'] || row['機構名稱'] || '';
-                        const address = row['详细地址'] || row['詳細地址'] || '';
-                        const id = row['序号'] || (idx + 1).toString();
-                        if (!name && !address) return;
-
-                        let lat = parseFloat(row['緯度'] || row['纬度'] || row['lat']);
-                        let lng = parseFloat(row['經度'] || row['经度'] || row['lng']);
-                        let approx = false;
-                        if (!lat || !lng) {
-                            // 以轄區中心 + 穩定偏移推估座標（取代隨機座標）
-                            const center = districtCenters[district] || [22.5431, 114.0579];
-                            lat = center[0] + hashJitter(code + name, 0.03);
-                            lng = center[1] + hashJitter(name + address, 0.03);
-                            approx = true;
-                        }
-                        parsed.push({
-                            id, district, code, name, address, lat, lng, approx,
-                            isNearHospital: name.includes('院边') || name.includes('院邊') || name.includes('医院') || address.includes('医院') || address.includes('醫院')
-                        });
-                    });
-
-                    if (parsed.length > 0) {
-                        rawPharmacies = parsed;
-                        selectedDistrict = '';
-                        openMiniMapIds.clear();
-                        renderDistrictTags();
-                        update();
-                        const approxCount = parsed.filter(p => p.approx).length;
-                        showToast(`成功匯入 ${parsed.length} 筆藥店資料` + (approxCount ? `（其中 ${approxCount} 筆座標為推估位置）` : ''));
-                    } else {
-                        showToast('CSV 中找不到有效資料列', 'error');
-                    }
-                },
-                error: () => showToast('CSV 解析失敗，請確認檔案格式', 'error')
-            });
-            e.target.value = '';
-        }
-
-        function exportFilteredCsv() {
-            if (currentFilteredData.length === 0) {
-                showToast('沒有可導出的數據！', 'error');
-                return;
-            }
-            const exportData = currentFilteredData.map(item => ({
-                '序号': item.id,
-                '所属辖区': item.district,
-                '机构编码': item.code,
-                '机构名称': item.name,
-                '详细地址': item.address,
-                '距目标距离(km)': item.distanceKm !== undefined ? item.distanceKm.toFixed(2) : 'N/A',
-                '纬度': item.lat || '',
-                '经度': item.lng || ''
-            }));
-            const csvString = Papa.unparse(exportData);
-            const blob = new Blob(["\ufeff" + csvString], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `深圳市定點藥店匯出_${new Date().toISOString().slice(0, 10)}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast(`已成功導出 ${currentFilteredData.length} 筆藥店資料`);
         }
 
         function copyToClipboard(text) {
