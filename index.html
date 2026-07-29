@@ -455,9 +455,16 @@
             dLng = (dLng * 180.0) / (AXIS / sqrtMagic * Math.cos(radLat) * PI_X);
             return { lat: lat + dLat, lng: lng + dLng };
         }
+        // Approximate inverse (good to ~1–2 m in Shenzhen)
+        function gcj02ToWgs84(lat, lng) {
+            if (outOfChina(lat, lng)) return { lat, lng };
+            const g = wgs84ToGcj02(lat, lng);
+            return { lat: lat * 2 - g.lat, lng: lng * 2 - g.lng };
+        }
 
         /* ============================= 地圖圖層（高德優先，OSM 備援） ============================= */
-        // tileMode: 'amap' (GCJ-02 需轉換) | 'osm' (WGS-84 直接使用) | null (尚未判定)
+        // tileMode: 'amap' | 'osm' | null
+        // 資料座標統一為 GCJ-02（與高德/百度 POI 一致），OSM 圖資再轉回 WGS-84
         let tileMode = null;
         const TILE_PROVIDERS = {
             amap: {
@@ -493,10 +500,14 @@
             }
         }
 
-        // 依目前圖資座標系投影 (lat,lng)
+        // 資料為 GCJ-02：高德圖直接使用；OSM 圖需轉 WGS-84
         function project(lat, lng) {
-            if (tileMode === 'amap') return wgs84ToGcj02(lat, lng);
-            return { lat, lng };
+            if (tileMode === 'amap') return { lat, lng };
+            return gcj02ToWgs84(lat, lng);
+        }
+        // 瀏覽器 GPS 為 WGS-84 → 轉成資料座標系（GCJ-02）
+        function gpsToDataCoords(lat, lng) {
+            return wgs84ToGcj02(lat, lng);
         }
 
         function createTileLayer() {
@@ -1282,7 +1293,8 @@
 
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    const nearest = findNearestHospital(pos.coords.latitude, pos.coords.longitude);
+                    const gps = gpsToDataCoords(pos.coords.latitude, pos.coords.longitude);
+                    const nearest = findNearestHospital(gps.lat, gps.lng);
                     reference = nearest ? { type: 'hospital', hospital: nearest } : null;
                     getGpsBtn.disabled = false;
                     getGpsBtn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i><span class="hidden md:inline">附近藥店</span>';
@@ -1319,7 +1331,7 @@
             return m >= 1000 ? `${km.toFixed(1)} km` : `${m} m`;
         }
 
-        // 高德步行導航連結（傳入 GCJ-02 座標）
+        // 高德步行導航連結（資料已是 GCJ-02，直接傳入，勿再 WGS→GCJ）
         function amapNavUrl(item) {
             const refPoint = getReferencePoint();
             const keyword = `${item.name || ''} ${item.address || ''}`.trim();
@@ -1327,12 +1339,10 @@
                 return `https://uri.amap.com/search?keyword=${encodeURIComponent(keyword)}&city=深圳`;
             }
             if (item.lat && item.lng) {
-                const to = wgs84ToGcj02(item.lat, item.lng);
                 if (refPoint) {
-                    const from = wgs84ToGcj02(refPoint.lat, refPoint.lng);
-                    return `https://uri.amap.com/navigation?from=${from.lng},${from.lat},${encodeURIComponent(refPoint.name)}&to=${to.lng},${to.lat},${encodeURIComponent(item.name)}&mode=walk&coordinate=gaode&callnative=0`;
+                    return `https://uri.amap.com/navigation?from=${refPoint.lng},${refPoint.lat},${encodeURIComponent(refPoint.name)}&to=${item.lng},${item.lat},${encodeURIComponent(item.name)}&mode=walk&coordinate=gaode&callnative=0`;
                 }
-                return `https://uri.amap.com/marker?position=${to.lng},${to.lat}&name=${encodeURIComponent(item.name)}&coordinate=gaode&callnative=0`;
+                return `https://uri.amap.com/marker?position=${item.lng},${item.lat}&name=${encodeURIComponent(item.name)}&coordinate=gaode&callnative=0`;
             }
             return `https://uri.amap.com/search?keyword=${encodeURIComponent((item.name || '') + ' ' + (item.address || ''))}`;
         }
