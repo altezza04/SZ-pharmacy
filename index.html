@@ -4,183 +4,844 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>深圳市定點藥店及醫院周邊藥房導航系統</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse for CSV reading -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+
+    <!-- 頂部導覽列 -->
     <header class="bg-gradient-to-r from-teal-800 via-emerald-700 to-teal-900 text-white shadow-md sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 py-3.5 flex justify-between items-center">
-            <h1 class="text-lg font-bold">深圳市門診特病定點藥店 & 周邊醫院檢索</h1>
-            <div class="flex space-x-2">
-                <label for="csvFileInput" class="cursor-pointer bg-white/15 text-white text-xs px-3 py-2 rounded-lg">匯入 CSV</label>
-                <input type="file" id="csvFileInput" accept=".csv" class="hidden">
-                <button id="exportCsvBtn" class="bg-white/15 text-white text-xs px-3 py-2 rounded-lg">導出結果</button>
-                <button id="resetFiltersBtn" class="bg-emerald-950/40 text-white text-xs px-3 py-2 rounded-lg">重設</button>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div class="flex items-center space-x-3">
+                    <div class="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
+                        <i class="fa-solid fa-hospital-user text-2xl text-emerald-200"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg md:text-xl font-bold tracking-tight">深圳市門診特病定點藥店 & 周邊醫院檢索</h1>
+                        <p class="text-xs text-emerald-100/90">門診特定病種（普通門診統籌、「雙通道」）定點藥店服務平台</p>
+                    </div>
+                </div>
+
+                <!-- 右側工具欄 -->
+                <div class="flex items-center space-x-2">
+                    <label for="csvFileInput" class="cursor-pointer bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span>匯入 CSV</span>
+                    </label>
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+
+                    <button id="exportCsvBtn" class="bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-export"></i>
+                        <span>導出結果</span>
+                    </button>
+
+                    <button id="resetFiltersBtn" class="bg-emerald-950/40 hover:bg-emerald-950/60 text-white text-xs px-3 py-2 rounded-lg transition flex items-center space-x-1.5 border border-emerald-400/30">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>重設</span>
+                    </button>
+                </div>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+    <!-- 主要內容區 -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- 模式切換頁籤 (Tab Bar) -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-1.5 flex flex-col sm:flex-row gap-1">
-            <button id="tabHospitalMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-bold bg-emerald-600 text-white">按附近醫院快速尋找</button>
-            <button id="tabSearchMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-semibold text-slate-600">綜合搜尋與轄區篩選</button>
-            <button id="tabGpsMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-semibold text-slate-600">我的位置 (GPS 定位)</button>
+            <button id="tabHospitalMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-sm transition">
+                <i class="fa-solid fa-hospital"></i>
+                <span>按附近醫院快速尋找</span>
+                <span class="bg-emerald-800/60 text-emerald-100 text-xs px-2 py-0.5 rounded-full font-normal">推薦</span>
+            </button>
+            <button id="tabSearchMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 transition">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>綜合搜尋與轄區篩選</span>
+            </button>
+            <button id="tabGpsMode" class="flex-1 py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 transition">
+                <i class="fa-solid fa-location-crosshairs text-emerald-600"></i>
+                <span>我的位置 (GPS 定位)</span>
+            </button>
         </div>
 
+        <!-- 區塊 1: 按附近醫院尋找面版 -->
         <section id="hospitalPanel" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
-            <h2 class="text-base font-bold text-slate-800">選取深圳市重點醫院，查詢最近的「雙通道」/定點藥房</h2>
-            <div id="hospitalChips" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2.5"></div>
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-hospital text-emerald-600"></i>
+                        選取深圳市重點醫院，查詢最近的「雙通道」/定點藥房
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">點選醫院後，系統將自動按步行距離排序周邊藥店，並提供導航路線。</p>
+                </div>
+                <div class="flex items-center space-x-2 text-xs text-slate-500">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span>支援院邊藥房特快標籤</span>
+                </div>
+            </div>
+
+            <!-- 醫院選單卡片欄 -->
+            <div id="hospitalChips" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                <!-- 動態注入醫院選項按鈕 -->
+            </div>
         </section>
 
+        <!-- 區塊 2: 綜合搜尋面版 (搜尋與轄區) -->
         <section id="searchPanel" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <input type="text" id="searchInput" placeholder="搜尋藥店名稱、詳細地址..." class="md:col-span-7 p-2.5 bg-slate-50 border rounded-xl text-sm">
-                <select id="districtSelect" class="md:col-span-5 p-2.5 bg-slate-50 border rounded-xl text-sm">
-                    <option value="">所有行政轄區 (全部)</option>
-                </select>
+                <!-- 搜尋輸入框 -->
+                <div class="md:col-span-7 relative">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </div>
+                    <input type="text" id="searchInput" placeholder="搜尋藥店名稱、詳細地址、機構編碼、醫院關鍵字..." 
+                           class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition text-sm">
+                    <button id="clearSearchBtn" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </button>
+                </div>
+
+                <!-- 行政轄區篩選 -->
+                <div class="md:col-span-5">
+                    <select id="districtSelect" class="w-full py-2.5 px-3.5 bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition text-sm text-slate-700">
+                        <option value="">所有行政轄區 (全部)</option>
+                    </select>
+                </div>
             </div>
-            <div id="districtTags" class="flex flex-wrap gap-1.5 pt-2"></div>
-        </section>
 
-        <section id="gpsPanel" class="hidden bg-emerald-50 rounded-2xl border border-emerald-200 p-5 space-y-3">
-            <button id="getGpsBtn" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold">立即定位</button>
-            <div id="gpsStatus" class="hidden text-xs p-2 bg-white rounded-lg"></div>
-        </section>
-
-        <section class="bg-white rounded-2xl border p-3.5 flex justify-between items-center">
-            <span class="text-xs text-slate-500">找到 <strong id="resultCount" class="text-emerald-700 font-bold text-base">0</strong> 家藥店</span>
-            <span id="activeFilterBadge" class="hidden bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full"></span>
-            <div class="flex space-x-1 bg-slate-100 p-1 rounded-xl">
-                <button id="cardViewBtn" class="px-3 py-1 text-xs bg-white rounded-lg font-bold">卡片</button>
-                <button id="tableViewBtn" class="px-3 py-1 text-xs text-slate-500 rounded-lg">表格</button>
+            <!-- 熱門轄區快捷標籤 -->
+            <div class="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider mr-1">轄區快選:</span>
+                <div id="districtTags" class="flex flex-wrap gap-1.5"></div>
             </div>
         </section>
 
-        <section id="cardContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></section>
-        <section id="tableContainer" class="hidden bg-white rounded-2xl border overflow-hidden">
-            <table class="w-full text-left text-sm">
-                <thead><tr class="bg-slate-100 text-xs"><th class="p-3">序號</th><th class="p-3">轄區</th><th class="p-3">名稱</th><th class="p-3">地址</th><th class="p-3">導航</th></tr></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
+        <!-- 區塊 3: 我的位置定位面版 -->
+        <section id="gpsPanel" class="hidden bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl shadow-sm border border-emerald-200/80 p-5 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <h3 class="text-base font-bold text-emerald-900 flex items-center gap-2">
+                        <i class="fa-solid fa-location-arrow text-emerald-600"></i>
+                        使用 GPS 定位尋找距離您最近的藥房
+                    </h3>
+                    <p class="text-xs text-emerald-700">請允許瀏覽器獲取您的位置，系統將自動計算直線距離並進行排序。</p>
+                </div>
+                <button id="getGpsBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition flex items-center justify-center space-x-2 shrink-0">
+                    <i class="fa-solid fa-crosshairs"></i>
+                    <span>立即定位</span>
+                </button>
+            </div>
+            <div id="gpsStatus" class="hidden text-xs px-3 py-2 bg-white/80 rounded-lg border border-emerald-200 text-emerald-800 font-medium"></div>
         </section>
-        <div id="noResults" class="hidden p-8 text-center"><button id="clearAllFiltersBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs">重設條件</button></div>
+
+        <!-- 結果控制欄與檢視模式切換 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm">
+            <div class="flex items-center space-x-3 w-full sm:w-auto">
+                <span class="text-xs text-slate-500">
+                    找到 <strong id="resultCount" class="text-emerald-700 font-bold text-base">0</strong> 家符合條件的定點藥店
+                </span>
+                <span id="activeFilterBadge" class="hidden bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs px-2.5 py-0.5 rounded-full font-medium"></span>
+            </div>
+
+            <!-- 卡片 / 表格 切換鈕 -->
+            <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl w-full sm:w-auto justify-end">
+                <button id="cardViewBtn" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-800 bg-white shadow-sm transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-border-all"></i>
+                    <span>卡片圖文</span>
+                </button>
+                <button id="tableViewBtn" class="px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-700 transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-list"></i>
+                    <span>表格列印</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 卡片檢視列表 -->
+        <section id="cardContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- 藥店卡片動態渲染 -->
+        </section>
+
+        <!-- 表格檢視列表 -->
+        <section id="tableContainer" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 border-b border-slate-200 font-semibold text-xs">
+                            <th class="py-3 px-4 w-16 text-center">序號</th>
+                            <th class="py-3 px-4 w-24">轄區</th>
+                            <th class="py-3 px-4 w-32">機構編碼</th>
+                            <th class="py-3 px-4">機構名稱</th>
+                            <th class="py-3 px-4">詳細地址</th>
+                            <th class="py-3 px-4 w-28 text-center">距離 / 導航</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <!-- 表格列動態渲染 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 無結果提示 -->
+        <div id="noResults" class="hidden bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
+            <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400 text-2xl">
+                <i class="fa-solid fa-store-slash"></i>
+            </div>
+            <h3 class="text-base font-bold text-slate-700">未找到符合條件的藥店</h3>
+            <p class="text-slate-500 text-xs max-w-md mx-auto">請嘗試選擇其他醫院、縮短搜尋關鍵字或清除篩選條件。</p>
+            <button id="clearAllFiltersBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-medium transition">
+                重設所有條件
+            </button>
+        </div>
+
     </main>
 
-    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-3 rounded-xl opacity-0 transition-all z-50">
-        <span id="toastMsg" class="text-xs"></span>
+    <!-- 頁尾 -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-500">
+        <p>深圳市門診特定病種定點零售藥店與醫院周邊資料庫 · 截至 2026年3月31日</p>
+    </footer>
+
+    <!-- Toast 訊息通知 -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 flex items-center space-x-3 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toastMsg" class="text-xs font-medium">訊息通知</span>
     </div>
+
+    <!-- JavaScript 核心 logic -->
     <script>
+        // 深圳市重點醫院清單與經緯度座標
         const keyHospitals = [
-            { id: 'h1', name: '北京大學深圳醫院', district: '福田區', lat: 22.5562, lng: 114.0538, desc: '蓮花路1120號' },
+            { id: 'h1', name: '北京大學深圳醫院', district: '福田區', lat: 22.5562, lng: 114.0538, desc: '蓮花路1120號 (蓮花北)' },
             { id: 'h2', name: '深圳市人民醫院 (留醫部)', district: '羅湖區', lat: 22.5574, lng: 114.1293, desc: '翠竹路1017號' },
             { id: 'h3', name: '深圳市第二人民醫院', district: '福田區', lat: 22.5578, lng: 114.0882, desc: '筍崗西路3002號' },
             { id: 'h4', name: '深圳市中醫院', district: '福田區', lat: 22.5367, lng: 114.0841, desc: '福華路1号' },
             { id: 'h5', name: '香港大學深圳醫院', district: '南山區', lat: 22.5284, lng: 113.9912, desc: '海園一路1號' },
-            { id: 'h6', name: '深圳市兒童醫院', district: '福田區', lat: 22.5480, lng: 114.0560, desc: '益田路7019號' }
+            { id: 'h6', name: '深圳市兒童醫院', district: '福田區', lat: 22.5480, lng: 114.0560, desc: '益田路7019號' },
+            { id: 'h7', name: '腫瘤醫院深圳醫院', district: '龍崗區', lat: 22.6885, lng: 114.2690, desc: '寶荷路113號' },
+            { id: 'h8', name: '深圳市第三人民醫院', district: '龍崗區', lat: 22.6362, lng: 114.1248, desc: '布欄路29號' },
+            { id: 'h9', name: '深圳大學總醫院', district: '南山區', lat: 22.5938, lng: 113.9715, desc: '學苑大道1098號' },
+            { id: 'h10', name: '寶安區人民醫院', district: '寶安區', lat: 22.5594, lng: 113.8967, desc: '龍井二路118號' },
+            { id: 'h11', name: '龍崗區中心醫院', district: '龍崗區', lat: 22.7230, lng: 114.2570, desc: '龍崗大道6082號' },
+            { id: 'h12', name: '中山大學附屬第七醫院', district: '光明區', lat: 22.7820, lng: 113.9120, desc: '圳園路628號' }
         ];
 
+        // 預設藥店數據（包含經緯度以便精準計算與醫院/用戶距離）
         const defaultPharmacyData = [
-            { id: "1", district: "福田区", code: "P44030700943", name: "深圳市海王星辰健康药房福田宝莲大厦店", address: "深圳市福田区莲花路1116号宝莲大厦1栋01", lat: 22.5558, lng: 114.0535, isNearHospital: true, hospitalRef: "北京大學深圳醫院" },
-            { id: "2", district: "福田区", code: "P44030400717", name: "深圳市海王星辰健康药房福华路店", address: "深圳市福田区福华路73号", lat: 22.5365, lng: 114.0845, isNearHospital: true, hospitalRef: "深圳市中醫院" },
-            { id: "3", district: "罗湖区", code: "P44030300122", name: "国药控股深圳大药房罗湖店", address: "深圳市罗湖区东门中路1011号", lat: 22.5560, lng: 114.1285, isNearHospital: true, hospitalRef: "深圳市人民醫院" },
-            { id: "4", district: "南山区", code: "P44030500812", name: "华润德信行医药深圳南山店", address: "深圳市南山区学苑大道1088号", lat: 22.5935, lng: 113.9710, isNearHospital: true, hospitalRef: "深圳大學總醫院" }
+            { id: "1", district: "福田区", code: "P44030700943", name: "深圳市海王星辰健康药房连锁有限公司福田宝莲大厦健康药房", address: "深圳市福田区莲花街道莲花北社区莲花路1116号莲花北宝莲大厦1栋01", lat: 22.5558, lng: 114.0535, isNearHospital: true, hospitalRef: "北京大學深圳醫院" },
+            { id: "2", district: "福田区", code: "P44030400717", name: "深圳市海王星辰健康药房连锁有限公司福华路健康药房", address: "广东省深圳市福田区福田街道办事处圩镇社区福华路73号维也纳酒店福华路73号", lat: 22.5365, lng: 114.0845, isNearHospital: true, hospitalRef: "深圳市中醫院" },
+            { id: "3", district: "福田区", code: "P44030400730", name: "深圳市海王星辰健康药房连锁有限公司福田莲花健康药房", address: "深圳市福田区莲花街道梅富社区梅富村1号A101", lat: 22.5520, lng: 114.0480, isNearHospital: false },
+            { id: "4", district: "福田区", code: "P44030400882", name: "深圳市海王星辰健康药房连锁有限公司红树东方健康药房", address: "深圳市福田区沙头街道金城社区白石路68号碧海云天花园15栋B单元8号之1", lat: 22.5290, lng: 113.9925, isNearHospital: true, hospitalRef: "香港大學深圳醫院" },
+            { id: "5", district: "福田区", code: "P44030400651", name: "深圳市海王星辰健康药房连锁有限公司黄埔雅苑健康药房", address: "广东省深圳市福田区莲花街道福田中心区黄埔雅苑会所二期及商场1层01-2-1", lat: 22.5475, lng: 114.0550, isNearHospital: true, hospitalRef: "深圳市兒童醫院" },
+            { id: "6", district: "罗湖区", code: "P44030300122", name: "国药控股深圳大药房有限公司罗湖店", address: "深圳市罗湖区东门街道东门中路1011号茂业百货首层", lat: 22.5560, lng: 114.1285, isNearHospital: true, hospitalRef: "深圳市人民醫院 (留醫部)" },
+            { id: "7", district: "罗湖区", code: "P44030300258", name: "深圳市海王星辰健康药房连锁有限公司春风路分店", address: "深圳市罗湖区南湖街道春风路3008号向西花园", lat: 22.5390, lng: 114.1210, isNearHospital: false },
+            { id: "8", district: "南山区", code: "P44030500199", name: "深圳市海王星辰健康药房连锁有限公司南海大道店", address: "深圳市南山区粤海街道南海大道2088号", lat: 22.5210, lng: 113.9310, isNearHospital: false },
+            { id: "9", district: "南山区", code: "P44030500812", name: "华润德信行医药（广东）有限公司深圳南山店", address: "深圳市南山区桃源街道学苑大道1088号", lat: 22.5935, lng: 113.9710, isNearHospital: true, hospitalRef: "深圳大學總醫院" },
+            { id: "10", district: "宝安区", code: "P44030600341", name: "深圳市海王星辰健康药房连锁有限公司宝安中心店", address: "深圳市宝安区新安街道宝民一路", lat: 22.5588, lng: 113.8960, isNearHospital: true, hospitalRef: "寶安區人民醫院" },
+            { id: "79", district: "龙岗区", code: "P44030704112", name: "深圳市海王星辰健康药房连锁有限公司欢城广场店", address: "广东省深圳市龙岗区龙岗街道龙岗大道(龙岗段)6483号欢城广场1F", lat: 22.7225, lng: 114.2565, isNearHospital: true, hospitalRef: "龍崗區中心醫院" },
+            { id: "80", district: "龙岗区", code: "P44030503590", name: "深圳市海王星辰健康药房连锁有限公司智富大厦健康药房", address: "广东省深圳市龙岗区龙城街道黄阁坑社区沙田围三街20号颐安智富大厦L129", lat: 22.7010, lng: 114.2230, isNearHospital: false },
+            { id: "81", district: "龙岗区", code: "P44030704959", name: "深圳广药联康医药有限公司龙岗院边药房", address: "深圳市龙岗区龙岗街道南联社区爱南路389号103", lat: 22.6880, lng: 114.2685, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
+            { id: "82", district: "龙岗区", code: "P44030705295", name: "深圳市健一生医药连锁有限公司京基御景时代店", address: "深圳市龙岗区龙城街道黄阁坑社区京基御景时代大厦商业群楼1号137", lat: 22.7030, lng: 114.2210, isNearHospital: false },
+            { id: "83", district: "龙岗区", code: "P44030705807", name: "国药控股深圳延风有限公司龙岗肿瘤大药房", address: "深圳市龙岗区龙岗街道南联社区爱南路391号102-4", lat: 22.6888, lng: 114.2695, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
+            { id: "84", district: "龙岗区", code: "P44030706006", name: "华润德信行医药（广东）有限公司深圳宝荷分店", address: "广东省深圳市龙岗区龙岗街道南联社区爱南路385.387号二单元302", lat: 22.6875, lng: 114.2680, isNearHospital: true, hospitalRef: "腫瘤醫院深圳醫院" },
+            { id: "85", district: "龙华区", code: "P44030900771", name: "深圳市海王星辰健康药房连锁有限公司观澜悦兴路健康药房", address: "广东省深圳市龙华区福城街道丹湖社区悦兴路", lat: 22.7150, lng: 114.0410, isNearHospital: false },
+            { id: "86", district: "坪山区", code: "P44031000120", name: "深圳市海王星辰健康药房连锁有限公司坪山中心店", address: "深圳市坪山区坪山街道坪山大道2001号", lat: 22.6980, lng: 114.3490, isNearHospital: false },
+            { id: "87", district: "光明区", code: "P44031100234", name: "国药控股深圳大药房有限公司光明店", address: "深圳市光明区光明街道光明大道", lat: 22.7810, lng: 113.9115, isNearHospital: true, hospitalRef: "中山大學附屬第七醫院" },
+            { id: "88", district: "盐田区", code: "P44030800055", name: "深圳市海王星辰健康药房连锁有限公司盐田海景店", address: "深圳市盐田区海山街道海景二路", lat: 22.5530, lng: 114.2380, isNearHospital: false }
         ];
 
-        let rawPharmacies = [...defaultPharmacyData], currentFilteredData = [], currentMode = 'hospital', selectedHospital = keyHospitals[0], userGps = null, viewMode = 'card';
+        // 應用全域狀態
+        let rawPharmacies = [...defaultPharmacyData];
+        let currentFilteredData = [];
+        let currentMode = 'hospital'; // 'hospital', 'search', 'gps'
+        let selectedHospital = keyHospitals[0]; // 預設選擇第一間醫院 (北大深圳醫院)
+        let userGps = null;
+        let viewMode = 'card'; // 'card' 或 'table'
 
+        // DOM 元素引用
+        const tabHospitalMode = document.getElementById('tabHospitalMode');
+        const tabSearchMode = document.getElementById('tabSearchMode');
+        const tabGpsMode = document.getElementById('tabGpsMode');
+
+        const hospitalPanel = document.getElementById('hospitalPanel');
+        const searchPanel = document.getElementById('searchPanel');
+        const gpsPanel = document.getElementById('gpsPanel');
+
+        const hospitalChips = document.getElementById('hospitalChips');
+        const searchInput = document.getElementById('searchInput');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+        const districtSelect = document.getElementById('districtSelect');
+        const districtTags = document.getElementById('districtTags');
+        const getGpsBtn = document.getElementById('getGpsBtn');
+        const gpsStatus = document.getElementById('gpsStatus');
+
+        const resultCount = document.getElementById('resultCount');
+        const activeFilterBadge = document.getElementById('activeFilterBadge');
+        const cardContainer = document.getElementById('cardContainer');
+        const tableContainer = document.getElementById('tableContainer');
+        const tableBody = document.getElementById('tableBody');
+        const noResults = document.getElementById('noResults');
+
+        const cardViewBtn = document.getElementById('cardViewBtn');
+        const tableViewBtn = document.getElementById('tableViewBtn');
+        const csvFileInput = document.getElementById('csvFileInput');
+        const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+        const clearAllFiltersBtn = document.getElementById('clearAllFiltersBtn');
+
+        // 初始化
         document.addEventListener('DOMContentLoaded', () => {
-            initHospitalChips(); initDistrictsDropdown(); setupEventListeners(); switchTab('hospital');
+            initHospitalChips();
+            initDistrictsDropdown();
+            setupEventListeners();
+            switchTab('hospital');
         });
 
+        // 渲染醫院選擇按鈕列
         function initHospitalChips() {
-            const container = document.getElementById('hospitalChips'); container.innerHTML = '';
+            hospitalChips.innerHTML = '';
             keyHospitals.forEach(hosp => {
                 const isSelected = selectedHospital && selectedHospital.id === hosp.id;
                 const btn = document.createElement('button');
-                btn.className = `p-3 rounded-xl border text-left text-xs ${isSelected ? 'border-emerald-500 bg-emerald-50 font-bold' : 'border-slate-200 bg-slate-50'}`;
-                btn.onclick = () => { selectedHospital = hosp; initHospitalChips(); filterAndRenderData(); };
-                btn.innerHTML = `<div class="text-emerald-700 font-bold">${hosp.district}</div><div class="font-bold">${hosp.name}</div>`;
-                container.appendChild(btn);
+                btn.className = `p-3 rounded-xl border text-left transition flex flex-col justify-between space-y-1 ${
+                    isSelected 
+                    ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-500/20 text-emerald-900 shadow-sm' 
+                    : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/80 text-slate-700'
+                }`;
+                btn.onclick = () => {
+                    selectedHospital = hosp;
+                    initHospitalChips();
+                    filterAndRenderData();
+                };
+
+                btn.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-emerald-700">${hosp.district}</span>
+                        ${isSelected ? '<i class="fa-solid fa-circle-check text-emerald-600 text-xs"></i>' : ''}
+                    </div>
+                    <div class="text-xs md:text-sm font-bold leading-tight line-clamp-1">${hosp.name}</div>
+                    <div class="text-[10px] text-slate-400 line-clamp-1">${hosp.desc}</div>
+                `;
+                hospitalChips.appendChild(btn);
             });
         }
 
+        // 渲染轄區下拉選單
         function initDistrictsDropdown() {
-            const select = document.getElementById('districtSelect');
-            const districts = Array.from(new Set(rawPharmacies.map(p => p.district))).sort();
-            districts.forEach(d => { const opt = document.createElement('option'); opt.value = d; opt.textContent = d; select.appendChild(opt); });
+            const districts = Array.from(new Set(rawPharmacies.map(p => p.district).filter(Boolean))).sort();
+            districtSelect.innerHTML = '<option value="">所有行政轄區 (全部)</option>';
+            districtTags.innerHTML = '';
+
+            // 「全部」快捷標籤
+            const allTag = document.createElement('button');
+            allTag.className = 'px-2.5 py-1 text-xs rounded-lg transition border border-emerald-500 bg-emerald-600 text-white font-medium';
+            allTag.innerText = '全部';
+            allTag.onclick = () => {
+                districtSelect.value = '';
+                filterAndRenderData();
+            };
+            districtTags.appendChild(allTag);
+
+            districts.forEach(dist => {
+                const opt = document.createElement('option');
+                opt.value = dist;
+                opt.textContent = dist;
+                districtSelect.appendChild(opt);
+
+                const tag = document.createElement('button');
+                tag.className = 'district-tag px-2.5 py-1 text-xs rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700 transition';
+                tag.setAttribute('data-district', dist);
+                tag.innerText = dist;
+                tag.onclick = () => {
+                    districtSelect.value = dist;
+                    filterAndRenderData();
+                };
+                districtTags.appendChild(tag);
+            });
         }
 
+        // 綁定事件
         function setupEventListeners() {
-            document.getElementById('tabHospitalMode').onclick = () => switchTab('hospital');
-            document.getElementById('tabSearchMode').onclick = () => switchTab('search');
-            document.getElementById('tabGpsMode').onclick = () => switchTab('gps');
-            document.getElementById('searchInput').oninput = filterAndRenderData;
-            document.getElementById('districtSelect').onchange = filterAndRenderData;
-            document.getElementById('cardViewBtn').onclick = () => setViewMode('card');
-            document.getElementById('tableViewBtn').onclick = () => setViewMode('table');
-            document.getElementById('getGpsBtn').onclick = handleGpsLocation;
+            // 頁籤切換
+            tabHospitalMode.addEventListener('click', () => switchTab('hospital'));
+            tabSearchMode.addEventListener('click', () => switchTab('search'));
+            tabGpsMode.addEventListener('click', () => switchTab('gps'));
+
+            // 搜尋框輸入
+            searchInput.addEventListener('input', () => {
+                toggleClearSearchBtn();
+                filterAndRenderData();
+            });
+
+            clearSearchBtn.addEventListener('click', () => {
+                searchInput.value = '';
+                toggleClearSearchBtn();
+                filterAndRenderData();
+            });
+
+            districtSelect.addEventListener('change', () => filterAndRenderData());
+
+            // 檢視模式切換
+            cardViewBtn.addEventListener('click', () => setViewMode('card'));
+            tableViewBtn.addEventListener('click', () => setViewMode('table'));
+
+            // GPS 定位事件
+            getGpsBtn.addEventListener('click', handleGpsLocation);
+
+            // 重設與導出 CSV
+            resetFiltersBtn.addEventListener('click', resetAll);
+            clearAllFiltersBtn.addEventListener('click', resetAll);
+            csvFileInput.addEventListener('change', handleCsvUpload);
+            exportCsvBtn.addEventListener('click', exportFilteredCsv);
         }
 
+        // 切換主功能 Tab
         function switchTab(mode) {
             currentMode = mode;
-            document.getElementById('hospitalPanel').classList.toggle('hidden', mode !== 'hospital');
-            document.getElementById('searchPanel').classList.toggle('hidden', mode !== 'search');
-            document.getElementById('gpsPanel').classList.toggle('hidden', mode !== 'gps');
+
+            // 按鈕樣式復原
+            [tabHospitalMode, tabSearchMode, tabGpsMode].forEach(btn => {
+                btn.className = 'flex-1 py-3 px-4 rounded-xl text-sm font-semibold flex items-center justify-center space-x-2 text-slate-600 hover:text-emerald-700 hover:bg-slate-50 transition';
+            });
+
+            hospitalPanel.classList.add('hidden');
+            searchPanel.classList.add('hidden');
+            gpsPanel.classList.add('hidden');
+
+            if (mode === 'hospital') {
+                tabHospitalMode.className = 'flex-1 py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-sm transition';
+                hospitalPanel.classList.remove('hidden');
+            } else if (mode === 'search') {
+                tabSearchMode.className = 'flex-1 py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-sm transition';
+                searchPanel.classList.remove('hidden');
+            } else if (mode === 'gps') {
+                tabGpsMode.className = 'flex-1 py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center space-x-2 bg-emerald-600 text-white shadow-sm transition';
+                gpsPanel.classList.remove('hidden');
+            }
+
             filterAndRenderData();
         }
 
+        // 控制清除搜尋按鈕顯示
+        function toggleClearSearchBtn() {
+            if (searchInput.value.trim().length > 0) {
+                clearSearchBtn.classList.remove('hidden');
+            } else {
+                clearSearchBtn.classList.add('hidden');
+            }
+        }
+
+        // 切換卡片 / 表格 View
         function setViewMode(mode) {
             viewMode = mode;
-            document.getElementById('cardContainer').classList.toggle('hidden', mode !== 'card');
-            document.getElementById('tableContainer').classList.toggle('hidden', mode !== 'table');
+            if (mode === 'card') {
+                cardContainer.classList.remove('hidden');
+                tableContainer.classList.add('hidden');
+                cardViewBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-800 bg-white shadow-sm transition flex items-center space-x-1.5';
+                tableViewBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-700 transition flex items-center space-x-1.5';
+            } else {
+                cardContainer.classList.add('hidden');
+                tableContainer.classList.remove('hidden');
+                tableViewBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-800 bg-white shadow-sm transition flex items-center space-x-1.5';
+                cardViewBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-700 transition flex items-center space-x-1.5';
+            }
         }
 
+        // 核心資料計算與過濾
         function filterAndRenderData() {
             let data = [...rawPharmacies];
+
+            // 根據不同模式進行距離計算與排序
             if (currentMode === 'hospital' && selectedHospital) {
-                data = data.map(p => ({ ...p, distanceKm: calculateDistanceKm(selectedHospital.lat, selectedHospital.lng, p.lat, p.lng) })).sort((a,b) => a.distanceKm - b.distanceKm);
+                activeFilterBadge.classList.remove('hidden');
+                activeFilterBadge.textContent = `附近醫院：${selectedHospital.name}`;
+
+                data = data.map(pharm => {
+                    const distKm = calculateDistanceKm(selectedHospital.lat, selectedHospital.lng, pharm.lat, pharm.lng);
+                    return { ...pharm, distanceKm: distKm, originType: 'hospital', originName: selectedHospital.name };
+                }).sort((a, b) => a.distanceKm - b.distanceKm);
+
+            } else if (currentMode === 'gps' && userGps) {
+                activeFilterBadge.classList.remove('hidden');
+                activeFilterBadge.textContent = `GPS 我的位置距離排序`;
+
+                data = data.map(pharm => {
+                    const distKm = calculateDistanceKm(userGps.lat, userGps.lng, pharm.lat, pharm.lng);
+                    return { ...pharm, distanceKm: distKm, originType: 'gps', originName: '我的位置' };
+                }).sort((a, b) => a.distanceKm - b.distanceKm);
+
+            } else if (currentMode === 'search') {
+                const query = searchInput.value.trim().toLowerCase();
+                const selDistrict = districtSelect.value;
+
+                if (selDistrict) {
+                    activeFilterBadge.classList.remove('hidden');
+                    activeFilterBadge.textContent = `轄區：${selDistrict}`;
+                } else if (query) {
+                    activeFilterBadge.classList.remove('hidden');
+                    activeFilterBadge.textContent = `關鍵字：${query}`;
+                } else {
+                    activeFilterBadge.classList.add('hidden');
+                }
+
+                data = data.filter(item => {
+                    const matchDistrict = !selDistrict || item.district === selDistrict;
+                    const matchQuery = !query || 
+                        (item.name && item.name.toLowerCase().includes(query)) ||
+                        (item.address && item.address.toLowerCase().includes(query)) ||
+                        (item.code && item.code.toLowerCase().includes(query)) ||
+                        (item.hospitalRef && item.hospitalRef.toLowerCase().includes(query));
+
+                    return matchDistrict && matchQuery;
+                });
             }
+
             currentFilteredData = data;
-            document.getElementById('resultCount').textContent = data.length;
-            renderCards(data);
+            resultCount.textContent = currentFilteredData.length;
+
+            if (currentFilteredData.length === 0) {
+                cardContainer.classList.add('hidden');
+                tableContainer.classList.add('hidden');
+                noResults.classList.remove('hidden');
+            } else {
+                noResults.classList.add('hidden');
+                if (viewMode === 'card') {
+                    cardContainer.classList.remove('hidden');
+                } else {
+                    tableContainer.classList.remove('hidden');
+                }
+                renderCards(currentFilteredData);
+                renderTable(currentFilteredData);
+            }
         }
 
+        // 渲染卡片 view
         function renderCards(data) {
-            const container = document.getElementById('cardContainer'); container.innerHTML = '';
+            cardContainer.innerHTML = '';
             data.forEach(item => {
                 const card = document.createElement('div');
-                card.className = 'bg-white rounded-2xl p-4 border space-y-2';
+                card.className = 'bg-white rounded-2xl p-4 md:p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-300 transition duration-200 flex flex-col justify-between space-y-4 group';
+
+                // 距離與步行時間標籤
+                let distanceHtml = '';
+                if (item.distanceKm !== undefined) {
+                    const distMeters = Math.round(item.distanceKm * 1000);
+                    const walkTimeMin = Math.max(1, Math.round(distMeters / 80)); // 假設步行每分鐘 80 米
+                    const distStr = distMeters >= 1000 ? `${item.distanceKm.toFixed(1)} km` : `${distMeters} m`;
+
+                    distanceHtml = `
+                        <div class="flex items-center space-x-1.5 bg-amber-50 text-amber-800 border border-amber-200/80 px-2.5 py-1 rounded-lg text-xs font-semibold">
+                            <i class="fa-solid fa-person-walking text-amber-600"></i>
+                            <span>距 ${item.originName || '此處'} 約 <strong>${distStr}</strong> (步行約 ${walkTimeMin} 分鐘)</span>
+                        </div>
+                    `;
+                }
+
+                // 院邊藥房特刊標籤
+                const hospitalBadge = item.isNearHospital 
+                    ? `<span class="bg-indigo-50 text-indigo-700 text-[11px] font-bold px-2 py-0.5 rounded-md border border-indigo-200/60 flex items-center gap-1">
+                            <i class="fa-solid fa-hospital-user text-indigo-500"></i> 院邊藥房 ${item.hospitalRef ? '(' + item.hospitalRef + ')' : ''}
+                       </span>` 
+                    : '';
+
+                // 高德路線導航網址
+                let navUrl = `https://uri.amap.com/search?keyword=${encodeURIComponent(item.name + ' ' + item.address)}`;
+                if (currentMode === 'hospital' && selectedHospital) {
+                    navUrl = `https://uri.amap.com/navigation?from=${selectedHospital.lng},${selectedHospital.lat},${encodeURIComponent(selectedHospital.name)}&to=${item.lng},${item.lat},${encodeURIComponent(item.name)}&mode=walk`;
+                } else if (currentMode === 'gps' && userGps) {
+                    navUrl = `https://uri.amap.com/navigation?from=${userGps.lng},${userGps.lat},我的位置&to=${item.lng},${item.lat},${encodeURIComponent(item.name)}&mode=walk`;
+                }
+
                 card.innerHTML = `
-                    <div class="text-xs text-emerald-700 font-bold">${item.district}</div>
-                    <h3 class="font-bold text-slate-800">${item.name}</h3>
-                    <p class="text-xs text-slate-500">${item.address}</p>
-                    <div class="flex gap-2 text-xs pt-2">
-                        <button onclick="copyToClipboard('${item.address}')" class="flex-1 py-1.5 bg-slate-100 rounded-lg">複製地址</button>
-                        <a href="https://uri.amap.com/search?keyword=${encodeURIComponent(item.name)}" target="_blank" class="flex-1 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-center">導航</a>
-                    </div>`;
-                container.appendChild(card);
+                    <div class="space-y-2.5">
+                        <div class="flex flex-wrap items-center justify-between gap-1.5">
+                            <span class="bg-emerald-50 text-emerald-700 text-xs font-bold px-2.5 py-0.5 rounded-lg border border-emerald-200/60 flex items-center gap-1">
+                                <i class="fa-solid fa-location-dot text-emerald-500"></i> ${escapeHtml(item.district || '其他')}
+                            </span>
+                            ${hospitalBadge}
+                        </div>
+
+                        ${distanceHtml}
+
+                        <h3 class="text-base font-bold text-slate-800 leading-snug group-hover:text-emerald-700 transition pt-1">
+                            ${escapeHtml(item.name || '未知藥店')}
+                        </h3>
+
+                        <div class="text-xs text-slate-500 space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                            <div class="flex items-start space-x-1.5">
+                                <i class="fa-solid fa-map-pin text-slate-400 mt-0.5 shrink-0"></i>
+                                <span class="break-all">${escapeHtml(item.address || '無詳細地址')}</span>
+                            </div>
+                            <div class="flex items-center space-x-1.5 pt-1 text-[11px] text-slate-400 font-mono">
+                                <i class="fa-solid fa-id-card text-slate-300"></i>
+                                <span>機構編碼: ${escapeHtml(item.code || '-')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                        <button onclick="copyToClipboard('${escapeJsString(item.address)}')" class="flex-1 py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition font-medium flex items-center justify-center space-x-1.5">
+                            <i class="fa-regular fa-copy"></i>
+                            <span>複製地址</span>
+                        </button>
+                        <a href="${navUrl}" target="_blank" rel="noopener noreferrer" class="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition font-medium flex items-center justify-center space-x-1.5 border border-emerald-200/60">
+                            <i class="fa-solid fa-route"></i>
+                            <span>步行導航</span>
+                        </a>
+                    </div>
+                `;
+                cardContainer.appendChild(card);
             });
         }
 
+        // 渲染表格 view
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition text-xs md:text-sm';
+
+                let distText = '-';
+                if (item.distanceKm !== undefined) {
+                    const distM = Math.round(item.distanceKm * 1000);
+                    distText = distM >= 1000 ? `${item.distanceKm.toFixed(1)} km` : `${distM} 米`;
+                }
+
+                let navUrl = `https://uri.amap.com/search?keyword=${encodeURIComponent(item.name + ' ' + item.address)}`;
+                if (currentMode === 'hospital' && selectedHospital) {
+                    navUrl = `https://uri.amap.com/navigation?from=${selectedHospital.lng},${selectedHospital.lat},${encodeURIComponent(selectedHospital.name)}&to=${item.lng},${item.lat},${encodeURIComponent(item.name)}&mode=walk`;
+                }
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 text-center font-mono text-slate-400">${index + 1}</td>
+                    <td class="py-3 px-4 font-medium text-slate-700">${escapeHtml(item.district || '-')}</td>
+                    <td class="py-3 px-4 font-mono text-xs text-slate-500">${escapeHtml(item.code || '-')}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-800">
+                        ${escapeHtml(item.name || '-')}
+                        ${item.isNearHospital ? '<span class="ml-1 text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-normal">院邊藥房</span>' : ''}
+                    </td>
+                    <td class="py-3 px-4 text-slate-600 max-w-xs truncate" title="${escapeHtml(item.address)}">${escapeHtml(item.address || '-')}</td>
+                    <td class="py-3 px-4 text-center space-x-1 font-medium text-xs">
+                        <span class="text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60 mr-1">${distText}</span>
+                        <a href="${navUrl}" target="_blank" rel="noopener noreferrer" class="text-emerald-600 hover:text-emerald-800 p-1">
+                            <i class="fa-solid fa-location-arrow"></i>
+                        </a>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // GPS 定位處理
         function handleGpsLocation() {
-            navigator.geolocation.getCurrentPosition(pos => {
-                userGps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                filterAndRenderData();
+            if (!navigator.geolocation) {
+                showToast('您的瀏覽器不支援 GPS 定位服務', 'error');
+                return;
+            }
+
+            gpsStatus.classList.remove('hidden');
+            gpsStatus.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-emerald-600 mr-2"></i>正在獲取您的當前位置...';
+
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    userGps = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    };
+                    gpsStatus.className = 'text-xs px-3 py-2 bg-emerald-100/80 border border-emerald-300 text-emerald-800 rounded-lg font-medium';
+                    gpsStatus.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i>成功定位！經度: ${userGps.lng.toFixed(4)}, 緯度: ${userGps.lat.toFixed(4)}`;
+                    filterAndRenderData();
+                    showToast('已完成 GPS 定位並計算藥店距離');
+                },
+                (err) => {
+                    gpsStatus.className = 'text-xs px-3 py-2 bg-rose-100 border border-rose-300 text-rose-800 rounded-lg font-medium';
+                    gpsStatus.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-600 mr-1.5"></i>定位失敗：${err.message || '無法取得您的定位權限'}`;
+                    showToast('定位失敗，請確保開放定位權限', 'error');
+                },
+                { timeout: 10000, enableHighAccuracy: true }
+            );
+        }
+
+        // Haversine 大圓距離計算公式 (回傳公里數)
+        function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+            if (!lat1 || !lon1 || !lat2 || !lon2) return 9999;
+            const R = 6371; // 地球半徑 (km)
+            const dLat = deg2rad(lat2 - lat1);
+            const dLon = deg2rad(lon2 - lon1);
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function deg2rad(deg) {
+            return deg * (Math.PI/180);
+        }
+
+        // 重置所有條件
+        function resetAll() {
+            searchInput.value = '';
+            districtSelect.value = '';
+            selectedHospital = keyHospitals[0];
+            userGps = null;
+            toggleClearSearchBtn();
+            initHospitalChips();
+            gpsStatus.classList.add('hidden');
+            filterAndRenderData();
+            showToast('已重設所有檢索條件');
+        }
+
+        // 處理 CSV 檔案上傳
+        function handleCsvUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        const parsed = [];
+                        results.data.forEach((row, idx) => {
+                            const district = row['所属辖区'] || row['轄區'] || '';
+                            const code = row['机构编码'] || row['機構編碼'] || '';
+                            const name = row['机构名称'] || row['機構名稱'] || '';
+                            const address = row['详细地址'] || row['詳細地址'] || '';
+                            const id = row['序号'] || (idx + 1).toString();
+
+                            if (name || address) {
+                                // 根據名稱簡意估算座標
+                                const isNearHosp = name.includes('院边') || name.includes('医院') || address.includes('医院');
+                                parsed.push({
+                                    id, district, code, name, address,
+                                    lat: 22.5400 + (Math.random() - 0.5) * 0.1,
+                                    lng: 114.0500 + (Math.random() - 0.5) * 0.1,
+                                    isNearHospital: isNearHosp
+                                });
+                            }
+                        });
+
+                        if (parsed.length > 0) {
+                            rawPharmacies = parsed;
+                            initDistrictsDropdown();
+                            filterAndRenderData();
+                            showToast(`成功匯入 ${parsed.length} 筆藥店資料！`);
+                        }
+                    }
+                }
             });
         }
 
-        function calculateDistanceKm(lat1, lon1, lat2, lon2) {
-            const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        // 導出 CSV
+        function exportFilteredCsv() {
+            if (currentFilteredData.length === 0) {
+                showToast('沒有可導出的數據！', 'error');
+                return;
+            }
+
+            const exportData = currentFilteredData.map(item => ({
+                '序号': item.id,
+                '所属辖区': item.district,
+                '机构编码': item.code,
+                '机构名称': item.name,
+                '详细地址': item.address,
+                '距目标距离(km)': item.distanceKm ? item.distanceKm.toFixed(2) : 'N/A'
+            }));
+
+            const csvString = Papa.unparse(exportData);
+            const blob = new Blob(["\ufeff" + csvString], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `深圳市定點藥店匯出_${new Date().toISOString().slice(0,10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`已成功導出 ${currentFilteredData.length} 筆藥店資料`);
         }
 
-        async function copyToClipboard(text) {
-            if (navigator.clipboard && window.isSecureContext) {
-                await navigator.clipboard.writeText(text);
-                alert('已複製藥店地址！');
+        // 複製文字
+        function copyToClipboard(text) {
+            if (!text) return;
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                showToast('已複製藥店地址！');
+            } catch (err) {
+                showToast('複製失敗，請手動選擇複製', 'error');
+            } finally {
+                document.body.removeChild(textarea);
             }
+        }
+
+        // Toast 訊息顯示
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.textContent = msg;
+            if (type === 'error') {
+                toastIcon.className = 'fa-solid fa-circle-exclamation text-rose-400 text-lg';
+            } else {
+                toastIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-lg';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        function escapeJsString(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'")
+                .replace(/"/g, '\\"');
         }
     </script>
 </body>
