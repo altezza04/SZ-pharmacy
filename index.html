@@ -408,7 +408,7 @@
         let rawPharmacies = [...defaultPharmacyData];
         let currentFilteredData = [];
         // 參考點：null | { type:'hospital', hospital } | { type:'gps', lat, lng }
-        let reference = { type: 'hospital', hospital: keyHospitals[0] };
+        let reference = null;
         let searchQuery = '';
         let selectedDistrict = '';
         let viewMode = 'card'; // 'card' 或 'table'
@@ -1212,6 +1212,19 @@
         }
 
         /* ============================= GPS 定位 ============================= */
+        function findNearestHospital(lat, lng) {
+            let nearest = null;
+            let minDist = Infinity;
+            keyHospitals.forEach(h => {
+                const d = calculateDistanceKm(lat, lng, h.lat, h.lng);
+                if (d < minDist) {
+                    minDist = d;
+                    nearest = h;
+                }
+            });
+            return nearest;
+        }
+
         function handleGpsLocation() {
             if (!navigator.geolocation) {
                 showToast('您的瀏覽器不支援 GPS 定位服務', 'error');
@@ -1222,12 +1235,15 @@
 
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
-                    reference = { type: 'gps', lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    const nearest = findNearestHospital(pos.coords.latitude, pos.coords.longitude);
+                    reference = nearest ? { type: 'hospital', hospital: nearest } : null;
                     getGpsBtn.disabled = false;
                     getGpsBtn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i><span class="hidden md:inline">附近藥店</span>';
                     renderHospitalChips();
                     update();
-                    showToast('已完成 GPS 定位，並依距離排序最近藥店');
+                    showToast(nearest
+                        ? `已定位，自動選擇最近醫院：${nearest.name}`
+                        : '已完成 GPS 定位');
                 },
                 (err) => {
                     getGpsBtn.disabled = false;
@@ -1274,7 +1290,7 @@
             searchInput.value = '';
             searchQuery = '';
             selectedDistrict = '';
-            reference = { type: 'hospital', hospital: keyHospitals[0] };
+            reference = null;
             openMiniMapIds.clear();
             toggleClearSearchBtn();
             renderDistrictTags();
