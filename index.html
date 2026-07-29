@@ -619,9 +619,9 @@
                     .bindPopup(`<div style="font-weight:700;font-size:12px;">${escapeHtml(refPoint.name)}</div>`);
                 L.polyline([[rp.lat, rp.lng], [p.lat, p.lng]], { color: '#059669', weight: 3, dashArray: '6 6', opacity: 0.8 }).addTo(map);
                 pts.push([rp.lat, rp.lng]);
-                map.fitBounds(pts, { padding: [28, 28], maxZoom: 16 });
+                map.fitBounds(pts, { padding: [28, 28], maxZoom: 17 });
             } else {
-                map.setView([p.lat, p.lng], 16);
+                map.setView([p.lat, p.lng], 17);
             }
             miniMaps.set(String(item.id), map);
             setTimeout(() => map.invalidateSize(), 80);
@@ -644,7 +644,12 @@
                 this.currentItem = item;
                 mapModalTitle.textContent = item.name || '未知藥店';
                 mapModalMeta.textContent = `${districtLabel(item.district)} · ${item.address || ''}`;
-                if (item.distanceKm !== undefined) {
+                if (item.pinApprox) {
+                    mapModalDist.classList.remove('hidden');
+                    mapModalDist.textContent = (item.distanceKm !== undefined
+                        ? `距 ${item.originName || '參考點'} 約 ${formatDistance(item.distanceKm)} · `
+                        : '') + '地圖標記為街區級定位，請以地址為準';
+                } else if (item.distanceKm !== undefined) {
                     mapModalDist.classList.remove('hidden');
                     mapModalDist.textContent = `距 ${item.originName || '參考點'} 約 ${formatDistance(item.distanceKm)}`;
                 } else {
@@ -672,8 +677,11 @@
                     }
                     setTimeout(() => {
                         this.map.invalidateSize();
-                        if (pts.length > 1) this.map.fitBounds(pts, { padding: [40, 40], maxZoom: 16 });
-                        else this.map.setView(pts[0], 16);
+                        if (pts.length > 1) {
+                            this.map.fitBounds(pts, { padding: [40, 40], maxZoom: 17 });
+                        } else {
+                            this.map.flyTo(pts[0], 17, { animate: true, duration: 0.45 });
+                        }
                     }, 80);
                 }
             },
@@ -1141,8 +1149,8 @@
                             <i class="fa-solid fa-hospital-user text-indigo-500"></i>院邊藥房${item.hospitalRef ? '（' + escapeHtml(item.hospitalRef) + '）' : ''}
                        </span>` : '';
 
-                const approxNote = item.approx
-                    ? '<div class="text-[10px] text-slate-400 flex items-center gap-1"><i class="fa-solid fa-circle-info"></i>座標為推估位置，出發前請再確認</div>' : '';
+                const approxNote = item.pinApprox
+                    ? '<div class="text-[10px] text-slate-400 flex items-center gap-1"><i class="fa-solid fa-circle-info"></i>地圖標記為街區級定位，請以地址為準</div>' : '';
 
                 const miniMapOpen = openMiniMapIds.has(String(item.id));
 
@@ -1296,6 +1304,10 @@
         // 高德步行導航連結（傳入 GCJ-02 座標）
         function amapNavUrl(item) {
             const refPoint = getReferencePoint();
+            const keyword = `${item.name || ''} ${item.address || ''}`.trim();
+            if (item.pinApprox) {
+                return `https://uri.amap.com/search?keyword=${encodeURIComponent(keyword)}&city=深圳`;
+            }
             if (item.lat && item.lng) {
                 const to = wgs84ToGcj02(item.lat, item.lng);
                 if (refPoint) {

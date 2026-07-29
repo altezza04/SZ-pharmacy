@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Rebuild pharmacies.json from official Excel with ArcGIS geocoding."""
+import hashlib
 import json
+import math
 import re
 import time
+from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
@@ -187,6 +190,51 @@ def geocode_address(name: str, address: str, district: str):
     return None
 
 
+def spread_duplicate_pins(pharmacies, precision=5, min_radius_m=40, max_radius_m=180):
+    """Offset pharmacies that share the same geocode so per-location maps look distinct."""
+    groups = defaultdict(list)
+    for p in pharmacies:
+        key = (round(p['lat'], precision), round(p['lng'], precision))
+        groups[key].append(p)
+
+    spread_count = 0
+    for group in groups.values():
+        if len(group) <= 1:
+            continue
+        group = sorted(group, key=lambda x: (x['code'], x['id']))
+        base_lat, base_lng = group[0]['lat'], group[0]['lng']
+        n = len(group)
+        for i, p in enumerate(group):
+            digest = hashlib.sha256(f"{p['code']}|{p['address']}".encode()).hexdigest()
+            h = int(digest[:8], 16)
+            angle = (h % 360) * math.pi / 180 + (i * 2 * math.pi / n)
+            radius_m = min_radius_m + (h % (max_radius_m - min_radius_m + 1))
+            d_lat = (radius_m / 111_320) * math.sin(angle)
+            d_lng = (radius_m / (111_320 * math.cos(math.radians(base_lat)))) * math.cos(angle)
+            p['lat'] = round(base_lat + d_lat, 6)
+            p['lng'] = round(base_lng + d_lng, 6)
+            p['pinApprox'] = True
+            spread_count += 1
+    return spread_count
+
+
+def finalize_pharmacies(pharmacies, hospitals_out):
+    spread = spread_duplicate_pins(pharmacies)
+    for item in pharmacies:
+        attach_hospital_ref(item, hospitals_out)
+    return spread
+
+
+def spread_pins_only():
+    pharmacies = json.loads(OUT.read_text(encoding='utf-8'))
+    hospitals_out = json.loads((ROOT / 'data' / 'hospitals.json').read_text(encoding='utf-8'))
+    for p in pharmacies:
+        p.pop('pinApprox', None)
+    spread = finalize_pharmacies(pharmacies, hospitals_out)
+    OUT.write_text(json.dumps(pharmacies, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(f'Spread {spread} duplicate pins -> {OUT}')
+
+
 def haversine_km(lat1, lon1, lat2, lon2):
     from math import asin, cos, radians, sin, sqrt
     r = 6371
@@ -265,14 +313,15 @@ def rebuild_pharmacies_only():
         }
         if result[2]:
             item['approx'] = True
-        attach_hospital_ref(item, hospitals_out)
         pharmacies.append(item)
         print(f"OK {pid:>3} {code} -> {name[:28]}")
 
     if failed:
         print('FAILED', failed)
+
+    spread = finalize_pharmacies(pharmacies, hospitals_out)
     OUT.write_text(json.dumps(pharmacies, ensure_ascii=False, indent=2), encoding='utf-8')
-    print(f'Wrote {len(pharmacies)} pharmacies -> {OUT}')
+    print(f'Wrote {len(pharmacies)} pharmacies ({spread} pins spread) -> {OUT}')
 
 
 def main():
@@ -320,27 +369,17 @@ def main():
         if approx:
             item['approx'] = True
 
-        nearest = None
-        nearest_km = 9999
-        for h in hospitals_out:
-            d = haversine_km(pt[0], pt[1], h['lat'], h['lng'])
-            if d < nearest_km:
-                nearest_km = d
-                nearest = h
-        if nearest and nearest_km <= 0.8:
-            item['isNearHospital'] = True
-            item['hospitalRef'] = nearest['name']
-
         pharmacies.append(item)
-        print(f"OK {pid:>3} {code} {nearest_km*1000:.0f}m -> {name[:28]}")
+        print(f"OK {pid:>3} {code} -> {name[:28]}")
 
     if failed:
         print('FAILED', failed)
 
+    spread = finalize_pharmacies(pharmacies, hospitals_out)
     OUT.write_text(json.dumps(pharmacies, ensure_ascii=False, indent=2), encoding='utf-8')
     hosp_path = ROOT / 'data' / 'hospitals.json'
     hosp_path.write_text(json.dumps(hospitals_out, ensure_ascii=False, indent=2), encoding='utf-8')
-    print(f"\nWrote {len(pharmacies)} pharmacies -> {OUT}")
+    print(f"\nWrote {len(pharmacies)} pharmacies ({spread} pins spread) -> {OUT}")
     print(f"Wrote {len(hospitals_out)} hospitals -> {hosp_path}")
 
 
@@ -348,6 +387,8 @@ if __name__ == '__main__':
     import sys
     if '--fix-district' in sys.argv:
         fix_district_mismatches()
+    elif '--spread-pins' in sys.argv:
+        spread_pins_only()
     elif '--pharmacies-only' in sys.argv:
         rebuild_pharmacies_only()
     else:
